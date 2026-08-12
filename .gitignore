@@ -7,3 +7,8 @@ node_modules/
 /blob-report/
 /playwright/.cache/
 /playwright/.auth/
+
+# Framework artifacts
+/logs/
+/reports/
+/tta-report/

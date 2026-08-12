@@ -42,14 +42,15 @@ export default defineConfig({
 
   reporter: [
     ['html'],
-    ['list']
+    ['list'],
+    ['./src/utils/CustomReporter.ts'],
   ],
 
   use: {
     baseURL: resolveBaseURL(),
     screenshot: 'only-on-failure',
     video: 'on',
-    trace: 'on-first-retry'
+    trace: 'on'
   },
 
   projects: [
