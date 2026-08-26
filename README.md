@@ -104,9 +104,67 @@ log.info('Opening the TTACart login page');
 // 2026-08-12 08:05:13 [info] [login.spec] Opening the TTACart login page
 ```
 
+For the complete level reference and examples, see [`src/utils/KBlogger.md`](src/utils/KBlogger.md).
+
+### Composable Playwright Fixtures
+
+`src/fixtures/test-base.ts` exports the project's custom `test` object. In addition to page-object fixtures, it provides four ready-to-use application states:
+
+| Fixture | State prepared before the test starts |
+|:--------|:--------------------------------------|
+| `invalidLogin` | Attempts login as `locked_out_user` and verifies that the login error is visible |
+| `validLogin` | Logs in successfully as `standard_user` |
+| `loginWithInventory` | Runs `validLogin` and verifies that the inventory page is loaded |
+| `loginWithSelectedItem` | Runs `loginWithInventory` and adds one configured item to the cart |
+
+Fixtures are lazy. Playwright runs only the fixture requested by a test and that fixture's dependencies. For example, requesting `loginWithSelectedItem` automatically performs valid login and inventory setup first:
+
+```ts
+import { test, expect } from '@fixtures/test-base';
+
+test('cart starts with one selected item', async ({
+    loginWithSelectedItem,
+    cartPage,
+}) => {
+    await cartPage.open();
+    expect(await cartPage.rowCount()).toBe(1);
+    expect(loginWithSelectedItem.itemId).toBeTruthy();
+});
+```
+
+The same file also injects a page-object fixture for every TTACart screen (`loginPage`, `inventoryPage`, `itemDetailPage`, `cartPage`, `checkoutStepOnePage`, `checkoutStepTwoPage`, `checkoutCompletePage`). Those fixtures construct the POM against the test's `page` without navigating; state fixtures do the reusable setup.
+
+The fixture definitions remain centralized in `test-base.ts`. See `src/tests/e2e/e2e-checkout_new_fixture.spec.ts` for independent invalid-login and complete-checkout examples.
+
+### Credentials
+
+**Concept:** `src/config/credentials.ts` centralises the standard TTACart account. Username and password come from `STANDARD_USER` and `TTA_SECRET` when set, otherwise they fall back to `standard_user` / `tta_secret`.
+
+**Why:** Specs should not hard-code demo credentials. Checkout tests import `credentials` and login specs / fixtures read accounts from `src/testdata/logintestdata.json` (valid, locked-out, and other SauceDemo-style users).
+
+```ts
+import { credentials } from '@config/credentials';
+
+await loginPage.loginAs(credentials.standardUser, credentials.password);
+```
+
+### visualStep
+
+**Concept:** `src/utils/visualStep.ts` wraps `test.step`. When `ATTACH_SCREENSHOTS=true`, it takes a screenshot at the end of the step and attaches it so the TTA reporter can show it next to that step.
+
+**Why:** Playwright's built-in `test.step` has no screenshot. Checkout specs use `visualStep` so the HTML report can replay each checkout stage visually without enabling screenshots for every locator click.
+
+```ts
+import { visualStep } from '@utils/visualStep';
+
+await visualStep(page, 'Open the cart', async () => {
+    await cartPage.open();
+});
+```
+
 ### Custom TTA Reporter
 
-**Concept:** `CustomTTAReporter` generates a self-contained HTML report (`tta-report/`) with real-time updates during the run. It embeds screenshots (on failure), video (always), trace zip files (always), step-level timelines, console logs, and three AI-powered tabs: AI Data, AI Verdict (RCA), and Flaky analysis.
+**Concept:** `CustomTTAReporter` generates a self-contained HTML report (`tta-report/`) with real-time updates during the run. When `ATTACH_SCREENSHOTS=true`, it embeds step and failure screenshots. It also embeds video (always), trace zip files (always), step-level timelines, console logs, and three AI-powered tabs: AI Data, AI Verdict (RCA), and Flaky analysis.
 
 **Why:** Playwright's built-in HTML reporter is a flat table. The TTA reporter adds expandable step details with video timestamps, per-step screenshots, inline console output, filterable tags, and an AI verdict pipeline for root-cause analysis on failures.
 
@@ -118,7 +176,7 @@ log.info('Opening the TTACart login page');
 
 | Artifact  | Playwright Config     | TTA Report Behaviour            |
 |:----------|:----------------------|:--------------------------------|
-| Screenshot | `only-on-failure`    | Copied to `tta-report/screenshots/`, linked in step detail |
+| Screenshot | Controlled by `ATTACH_SCREENSHOTS` | Disabled by default; when enabled, failure and `visualStep` screenshots are copied to `tta-report/screenshots/` |
 | Video     | `on`                  | Copied to `tta-report/videos/`, embedded as `<video>` in detail panel |
 | Trace     | `on`                  | Copied to `tta-report/traces/`, downloadable with step timestamps |
 
@@ -128,14 +186,17 @@ log.info('Opening the TTACart login page');
 .
 ├── .github/workflows/     # CI pipeline (GitHub Actions)
 ├── docs/                  # Documentation
+├── learnings/             # Implementation notes (reporter wiring, etc.)
 ├── rules/                 # Project/test rules and conventions
 ├── src/
 │   ├── ai/
 │   │   ├── agents/        # RCA and Flaky AI analysis agents
 │   │   └── config/        # LLM provider configuration
 │   ├── api/               # API clients / request helpers
-│   ├── config/            # Environment and framework configuration
-│   ├── fixtures/          # Custom Playwright fixtures
+│   ├── config/
+│   │   └── credentials.ts # STANDARD_USER / TTA_SECRET with demo fallbacks
+│   ├── fixtures/
+│   │   └── test-base.ts   # Page-object and composable state fixtures
 │   ├── pages/             # Page Object Model classes
 │   │   ├── BasePage.ts    # Shared scaffolding (page, el, log, goto)
 │   │   ├── LoginPage.ts   # Login screen with data-test locators
@@ -145,13 +206,20 @@ log.info('Opening the TTACart login page');
 │   │   ├── CheckoutStepTwoPage.ts
 │   │   ├── CheckoutCompletePage.ts
 │   │   └── ItemDetailPage.ts
-│   ├── testdata/          # Static and generated test data
-│   ├── tests/             # Test specs
-│   │   └── login.spec.ts  # Login flow with @p0 smoke tag
+│   ├── testdata/
+│   │   └── logintestdata.json # Valid and negative login accounts
+│   ├── tests/
+│   │   ├── e2e/
+│   │   │   ├── e2e-checkout.spec.ts              # Full checkout via visualStep
+│   │   │   └── e2e-checkout_new_fixture.spec.ts  # Fixture-driven login + checkout
+│   │   └── login/
+│   │       └── login.spec.ts  # Login flow with @p0 smoke tag
 │   └── utils/
 │       ├── CustomReporter.ts    # TTA HTML reporter with AI tabs
-│       ├── DataGenerator.ts     # Faker-based test data builders
+│       ├── DataGenerator.ts     # Faker-based test data (checkoutCustomer, etc.)
+│       ├── KBlogger.md          # Supported logger levels and examples
 │       ├── UtilElementLocator.ts # Logged locator wrapper (Flex type)
+│       ├── visualStep.ts        # Optional per-step screenshot attachments
 │       └── logger.ts            # Winston scoped logger
 ├── playwright.config.ts   # Playwright configuration
 ├── tsconfig.json          # TypeScript configuration and path aliases
@@ -176,6 +244,9 @@ Create a `.env` file in the project root to override defaults (see [Environment 
 
 ```bash
 TTA_ENV=qa
+ATTACH_SCREENSHOTS=false
+STANDARD_USER=standard_user
+TTA_SECRET=tta_secret
 BASE_URL=
 QA_BASE_URL=https://app.thetestingacademy.com
 STG_BASE_URL=https://stage.thetestingacademy.com
@@ -197,6 +268,8 @@ The base URL is resolved in `playwright.config.ts` based on the `TTA_ENV` enviro
 | `api`                     | `API_BASE_URL` or `https://restful-booker.herokuapp.com` |
 
 `BASE_URL`, if set, always takes precedence over the above.
+
+Set `ATTACH_SCREENSHOTS=true` to attach screenshots for every `visualStep` and on test failures. The default is `false`, which disables both step and failure screenshot attachments.
 
 ## Path Aliases
 
@@ -222,14 +295,16 @@ npx playwright test
 Run a specific test file:
 
 ```bash
-npx playwright test src/tests/example.spec.ts
+npx playwright test src/tests/login/login.spec.ts
 ```
 
-Run in headed mode:
+Run the fixture-driven checkout examples:
 
 ```bash
-npx playwright test --headed
+npx playwright test src/tests/e2e/e2e-checkout_new_fixture.spec.ts
 ```
+
+Tests run in headed mode at a Full HD viewport (`1920 × 1080`) by default.
 
 Run against a specific environment:
 
@@ -251,7 +326,9 @@ Defined in `playwright.config.ts`:
 - Timeout: 60s per test, 10s per assertion
 - Fully parallel execution
 - Retries: 2 on CI, 0 locally
-- Screenshots: on failure only
+- Headed browser: always enabled
+- Viewport: 1920 × 1080
+- Screenshots: disabled by default; set `ATTACH_SCREENSHOTS=true` for `visualStep` and failure attachments
 - Video: always recorded
 - Trace: always captured
 - Browser project: Chromium (Desktop Chrome)
@@ -264,7 +341,7 @@ Defined in `playwright.config.ts`:
 2. Sets up Node.js (LTS)
 3. Installs dependencies (`npm ci`)
 4. Installs Playwright browsers with OS dependencies
-5. Runs the Playwright test suite
+5. Runs the Playwright test suite under `xvfb-run` (required because tests run headed at 1920 × 1080)
 6. Uploads the HTML report as a build artifact (30-day retention)
 
 ## License

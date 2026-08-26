@@ -1,0 +1,26 @@
+[
+  {
+    "username": "standard_user",
+    "password": "tta_secret"
+  },
+  {
+    "username": "locked_out_user",
+    "password": "tta_secret"
+  },
+  {
+    "username": "problem_user",
+    "password": "tta_secret"
+  },
+  {
+    "username": "performance_glitch_user",
+    "password": "tta_secret"
+  },
+  {
+    "username": "error_user",
+    "password": "tta_secret"
+  },
+  {
+    "username": "visual_user",
+    "password": "tta_secret"
+  }
+]
