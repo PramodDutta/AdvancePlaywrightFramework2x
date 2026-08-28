@@ -138,14 +138,49 @@ The fixture definitions remain centralized in `test-base.ts`. See `src/tests/e2e
 
 ### Credentials
 
-**Concept:** `src/config/credentials.ts` centralises the standard TTACart account. Username and password come from `STANDARD_USER` and `TTA_SECRET` when set, otherwise they fall back to `standard_user` / `tta_secret`.
+**Concept:** `src/config/credentials.ts` centralises the standard TTACart account. Username and password are read through `envOr` from [`@config/env`](#environment-reader-configenv), so they come from `STANDARD_USER` and `TTA_SECRET` when set and fall back to `standard_user` / `tta_secret` otherwise.
 
-**Why:** Specs should not hard-code demo credentials. Checkout tests import `credentials` and login specs / fixtures read accounts from `src/testdata/logintestdata.json` (valid, locked-out, and other SauceDemo-style users).
+**Why:** Specs should not hard-code demo credentials. Checkout tests import `credentials` and login specs / fixtures read accounts from `src/testdata/logintestdata.json` (valid, locked-out, and other SauceDemo-style users). Importing `@config/env` is also what guarantees `.env` is loaded before these values are computed.
 
 ```ts
 import { credentials } from '@config/credentials';
 
 await loginPage.loginAs(credentials.standardUser, credentials.password);
+```
+
+### Environment Reader (`@config/env`)
+
+**Concept:** `src/config/env.ts` is the single entry point for reading `.env`. Importing it loads the file into `process.env` once, then exposes three typed readers so nothing else touches `process.env` directly.
+
+| Function | Behaviour |
+|:---------|:----------|
+| `requireEnv(key)` | Returns the value, throws with an actionable message when unset or blank |
+| `envOr(key, fallback)` | Returns the value, or the fallback when unset |
+| `assertEnv(...keys)` | Checks several keys exist without returning them, reporting every missing key at once |
+
+**Why:** Playwright transpiles TypeScript through Babel, whose CommonJS transform **hoists every `import` to the top of the file**. A `dotenv.config()` call written between two imports therefore runs *after* both of them, so a module that reads `process.env` at load time is computed against an unloaded `.env`, silently using the wrong value. Putting the load inside a module that others import turns that hoisting from a hazard into a guarantee.
+
+**Q&A — why use this?**
+
+- **Q: Do I still need `dotenv.config()` in my spec?** A: No, and you should not add one. Import `@config/env` (or anything that imports it, such as `@config/credentials`) and the file is already loaded.
+- **Q: Does a shell variable beat the `.env` file?** A: Yes. `override` stays at dotenv's default `false`, so `FOO=bar npx playwright test` wins over the file. That is correct for CI, and it is how you prove a value is genuinely being injected.
+- **Q: What happens when a required key is missing?** A: `requireEnv` and `assertEnv` throw at module load, which is *collection* time, so the run stops immediately instead of failing later at a login screen. Note this fails the whole run, not one test, which is why CI seeds a `.env` (see [Continuous Integration](#continuous-integration)).
+
+```mermaid
+flowchart LR
+    ENV[".env file"] --> E["@config/env<br/>dotenv.config once"]
+    E --> C["@config/credentials"]
+    E --> D["@utils/DataGenerator"]
+    E --> S["e2e-checkout-env.spec.ts"]
+    SHELL["shell / CI vars"] -->|"override: false<br/>shell wins"| E
+```
+
+```ts
+import { assertEnv, requireEnv, envOr } from '@config/env';
+
+assertEnv('STANDARD_USER', 'TTA_SECRET');          // fail fast, values read elsewhere
+const ITEM_ID = requireEnv('CHECKOUT_ITEM_ID');    // required
+const zip = envOr('CHECKOUT_POSTAL_CODE', '560001'); // optional with fallback
 ```
 
 ### visualStep
@@ -184,9 +219,18 @@ await visualStep(page, 'Open the cart', async () => {
 
 ```
 .
-├── .github/workflows/     # CI pipeline (GitHub Actions)
+├── .claude/
+│   ├── commands/
+│   │   └── gogo.md        # /gogo: update README, commit, push
+│   └── skills/            # 12 agent skills, read by Claude Code AND Copilot
+├── .github/
+│   ├── copilot-instructions.md  # Repo-wide rules for GitHub Copilot
+│   └── workflows/         # CI pipeline (GitHub Actions)
+├── .env.example           # Committed template; CI copies it to .env
 ├── docs/                  # Documentation
-├── learnings/             # Implementation notes (reporter wiring, etc.)
+├── learnings/
+│   ├── NewFeature.md      # How the .env feature was built, step by step
+│   └── *.md               # Implementation notes (reporter wiring, dotenv, etc.)
 ├── rules/                 # Project/test rules and conventions
 ├── src/
 │   ├── ai/
@@ -194,7 +238,8 @@ await visualStep(page, 'Open the cart', async () => {
 │   │   └── config/        # LLM provider configuration
 │   ├── api/               # API clients / request helpers
 │   ├── config/
-│   │   └── credentials.ts # STANDARD_USER / TTA_SECRET with demo fallbacks
+│   │   ├── credentials.ts # STANDARD_USER / TTA_SECRET with demo fallbacks
+│   │   └── env.ts         # Loads .env once; requireEnv / envOr / assertEnv
 │   ├── fixtures/
 │   │   └── test-base.ts   # Page-object and composable state fixtures
 │   ├── pages/             # Page Object Model classes
@@ -211,6 +256,7 @@ await visualStep(page, 'Open the cart', async () => {
 │   ├── tests/
 │   │   ├── e2e/
 │   │   │   ├── e2e-checkout.spec.ts              # Full checkout via visualStep
+│   │   │   ├── e2e-checkout-env.spec.ts          # Same flow, every input from .env
 │   │   │   └── e2e-checkout_new_fixture.spec.ts  # Fixture-driven login + checkout
 │   │   └── login/
 │   │       └── login.spec.ts  # Login flow with @p0 smoke tag
@@ -240,7 +286,15 @@ npm install
 npx playwright install
 ```
 
-Create a `.env` file in the project root to override defaults (see [Environment Configuration](#environment-configuration)):
+Create your `.env` from the committed template (this is exactly what CI does):
+
+```bash
+cp .env.example .env
+```
+
+`.env` itself is gitignored. `.env.example` is not, and it is the contract: if a key is required
+and missing, the suite stops at collection with a message naming the key. Override defaults there
+(see [Environment Configuration](#environment-configuration)):
 
 ```bash
 TTA_ENV=qa
@@ -268,6 +322,25 @@ The base URL is resolved in `playwright.config.ts` based on the `TTA_ENV` enviro
 | `api`                     | `API_BASE_URL` or `https://restful-booker.herokuapp.com` |
 
 `BASE_URL`, if set, always takes precedence over the above.
+
+### Keys read by the suite
+
+| Key | Read by | Required |
+|:----|:--------|:---------|
+| `STANDARD_USER` / `TTA_SECRET` | `@config/credentials` | Yes for `e2e-checkout-env.spec.ts` |
+| `CHECKOUT_ITEM_ID` | `e2e-checkout-env.spec.ts` | Yes for that spec |
+| `CHECKOUT_FIRST_NAME` / `CHECKOUT_LAST_NAME` / `CHECKOUT_POSTAL_CODE` | `DataGenerator.checkoutCustomerFromEnv()` | No, Faker fills any that are unset |
+| `LOG_LEVEL` | `@utils/logger` | No, defaults to `info` |
+| `ATTACH_SCREENSHOTS` | `playwright.config.ts`, `@utils/visualStep` | No, defaults to `false` |
+| `TEST_ENV` / `TEST_AUTHOR` | `CustomReporter` header | No |
+
+A shell variable always beats the file, because dotenv's `override` is left at `false`. Use that to
+prove a value is genuinely reaching the test:
+
+```bash
+CHECKOUT_FIRST_NAME=EnvProof npx playwright test src/tests/e2e/e2e-checkout-env.spec.ts
+# the log must read customer="EnvProof ..."; if it still shows the .env value, nothing is flowing
+```
 
 Set `ATTACH_SCREENSHOTS=true` to attach screenshots for every `visualStep` and on test failures. The default is `false`, which disables both step and failure screenshot attachments.
 
@@ -341,8 +414,80 @@ Defined in `playwright.config.ts`:
 2. Sets up Node.js (LTS)
 3. Installs dependencies (`npm ci`)
 4. Installs Playwright browsers with OS dependencies
-5. Runs the Playwright test suite under `xvfb-run` (required because tests run headed at 1920 × 1080)
-6. Uploads the HTML report as a build artifact (30-day retention)
+5. **Seeds `.env` with `cp .env.example .env`**
+6. Runs the Playwright test suite under `xvfb-run` (required because tests run headed at 1920 × 1080)
+7. Uploads the HTML report as a build artifact (30-day retention)
+
+Step 5 is not optional. `.env` is gitignored, so the runner checks out a repo without one, and the
+fail-fast checks in `@config/env` throw during test collection. That fails the **entire** run, not
+just the specs that need those keys. Reproduce the runner's state locally before changing CI:
+
+```bash
+mv .env .env.bak && npx playwright test    # must fail the way CI would
+cp .env.example .env && npx playwright test
+mv .env.bak .env
+```
+
+When real credentials replace the demo values, swap the seeding step for an `env:` block backed by
+GitHub Secrets. `STANDARD_USER` and `TTA_SECRET` are the keys `@config/credentials` reads.
+
+## Agent Skills
+
+**Concept:** `.claude/skills/` holds 12 agent skills: 11 adapted from the
+[TheTestingAcademy Playwright pack](https://github.com/PramodDutta/skillmasterclass/tree/main/skillmasterclass/skills/framework-packs/playwright-pack),
+plus one written for this repo. Each is a `SKILL.md` with YAML frontmatter that an agent loads only
+when the task matches its description.
+
+**Why:** The upstream pack is written for generic Playwright. These copies are rewritten against
+*this* framework, so a generated spec imports from `@fixtures/test-base` rather than
+`@playwright/test`, a Page Object extends `BasePage`, and API schema examples use `ajv` rather than
+zod, which is not a dependency here.
+
+**One directory, both tools.** GitHub Copilot reads project skills from `.github/skills`,
+`.claude/skills`, or `.agents/skills`, so `.claude/skills/` serves Claude Code and Copilot with no
+duplication. `.github/copilot-instructions.md` carries the same conventions for Copilot's inline
+suggestions and chat, which do not load skills the same way.
+
+| Skill | Use it for |
+|:------|:-----------|
+| `pw-page-object-builder` | A new Page Object following the `BasePage` contract |
+| `pw-fixture-designer` | A new fixture, extending `test-base.ts` rather than adding a second module |
+| `pw-test-generator` | A new spec in the house style |
+| `pw-locator-fixer` | Replacing brittle selectors with `data-test` locators |
+| `pw-api-tester` | API specs using `ajv` + `ajv-formats` + `jsonpath-plus` |
+| `pw-network-mocker` | `page.route` stubbing, with the static-app caveat |
+| `pw-flaky-debugger` | Intermittent failures, starting from `reports/runs/*.json` |
+| `pw-trace-analyzer` | Reading a `trace.zip` or a CI failure |
+| `pw-visual-regression` | Screenshot baselines (not set up in this repo yet) |
+| `pw-accessibility-auditor` | axe checks (`@axe-core/playwright` not installed yet) |
+| `pw-ci-configurator` | Editing `.github/workflows/playwright.yml` |
+| `feature-explainer` | An ELI5 page plus hand-drawn whiteboard for a shipped change |
+
+**Q&A — why use these?**
+
+- **Q: How do I trigger one?** A: Describe the task in the words the skill's description lists, for example "make a page object for the cart" or "this test is flaky". The agent loads the matching skill itself. In Claude Code you can also invoke one by name.
+- **Q: Do skills change if I edit them mid-session?** A: No. Skills are snapshotted at session start, so restart the session after editing one.
+- **Q: What does `feature-explainer` produce?** A: One self-contained HTML file written to a scratch directory, never committed, with a verification script that renders it in both light and dark themes and fails on clipped diagrams, unloaded fonts, or sideways page scroll.
+
+```
+.claude/skills/
+├── feature-explainer/
+│   ├── SKILL.md
+│   ├── assets/explainer-template.html   # page shell, tokens, both themes
+│   ├── references/hand-drawn-svg.md     # rough-box / arrow / sticky recipes
+│   └── scripts/verify-explainer.js      # renders and fails on real defects
+└── pw-*/SKILL.md                        # 11 framework-adapted Playwright skills
+```
+
+## Slash Commands
+
+`.claude/commands/gogo.md` defines `/gogo`: update this README for whatever changed, then stage,
+commit, and push to `main`. Run it after a feature lands so the docs never drift behind the code.
+
+```bash
+/gogo                 # README + commit + push
+/gogo skip readme     # commit and push only
+```
 
 ## License
 
