@@ -17,6 +17,8 @@ jobs:
       run: npm ci
     - name: Install Playwright Browsers
       run: npx playwright install --with-deps
+    - name: Seed .env for the test run
+      run: cp .env.example .env
     - name: Run Playwright tests
       run: xvfb-run --auto-servernum npx playwright test
     - uses: actions/upload-artifact@v4
