@@ -24,7 +24,7 @@ A TypeScript test automation framework built on [Playwright](https://playwright.
 
 **Why:** Without POM, selectors scatter across test files. One UI change breaks dozens of tests. With POM, you fix the locator in one place and every test using that page recovers.
 
-**Q&A — why use this?**
+**Q&A - why use this?**
 
 - **Q: What goes in the BasePage vs the subclass?** A: BasePage holds cross-cutting plumbing (`page`, `el`, `log`, `goto`). Subclasses declare their own `private readonly` Locator fields and domain actions like `loginAs()`.
 - **Q: How do I add a new page?** A: Create `src/pages/NewPage.ts`, extend `BasePage`, declare locators, add actions, then instantiate from tests or fixtures.
@@ -72,7 +72,7 @@ export class LoginPage extends BasePage {
 
 **Why:** Raw `locator.click()` in a POM method leaves no log trail. When a test fails in CI at 3 AM, you want to see `[LoginPage] click [data-test="login-button"]` in the logs, not guess which locator threw.
 
-**Q&A — why use this?**
+**Q&A - why use this?**
 
 - **Q: When do I use `el.click()` vs `page.locator(...).click()` directly?** A: Always use `el.*` inside Page Object methods. Direct `page.locator()` is fine for test-level one-liners when the POM doesn't own that element.
 - **Q: What's the default timeout?** A: 15 seconds (`DEFAULT_ACTION_TIMEOUT_MS`). Pass a second argument to override per-call.
@@ -91,7 +91,7 @@ await this.el.waitForVisible(this.errorBox);           // waits up to 15 s with 
 
 **Why:** `console.log` doesn't carry timestamps, levels, or scope. Winston gives you timestamped, leveled, scoped logs with zero config. Filter by level via `LOG_LEVEL` env var (default `info`).
 
-**Q&A — why use this?**
+**Q&A - why use this?**
 
 - **Q: How do I silence debug logs in CI?** A: Set `LOG_LEVEL=info` (default). For verbose local debugging, `LOG_LEVEL=debug`.
 - **Q: Where do log files go?** A: `logs/combined.log` in the project root. This directory is git-ignored.
@@ -160,7 +160,7 @@ await loginPage.loginAs(credentials.standardUser, credentials.password);
 
 **Why:** Playwright transpiles TypeScript through Babel, whose CommonJS transform **hoists every `import` to the top of the file**. A `dotenv.config()` call written between two imports therefore runs *after* both of them, so a module that reads `process.env` at load time is computed against an unloaded `.env`, silently using the wrong value. Putting the load inside a module that others import turns that hoisting from a hazard into a guarantee.
 
-**Q&A — why use this?**
+**Q&A - why use this?**
 
 - **Q: Do I still need `dotenv.config()` in my spec?** A: No, and you should not add one. Import `@config/env` (or anything that imports it, such as `@config/credentials`) and the file is already loaded.
 - **Q: Does a shell variable beat the `.env` file?** A: Yes. `override` stays at dotenv's default `false`, so `FOO=bar npx playwright test` wins over the file. That is correct for CI, and it is how you prove a value is genuinely being injected.
@@ -203,7 +203,7 @@ await visualStep(page, 'Open the cart', async () => {
 
 **Why:** Playwright's built-in HTML reporter is a flat table. The TTA reporter adds expandable step details with video timestamps, per-step screenshots, inline console output, filterable tags, and an AI verdict pipeline for root-cause analysis on failures.
 
-**Q&A — why use this?**
+**Q&A - why use this?**
 
 - **Q: How is it wired in?** A: Listed as a reporter path in `playwright.config.ts`: `['./src/utils/CustomReporter.ts']`. No CLI flag needed.
 - **Q: Do the AI tabs work out of the box?** A: The Flaky tab diffs two consecutive runs without any API key. RCA and AI Data tabs need an LLM key set in `src/ai/config/providers.ts`.
@@ -214,6 +214,57 @@ await visualStep(page, 'Open the cart', async () => {
 | Screenshot | Controlled by `ATTACH_SCREENSHOTS` | Disabled by default; when enabled, failure and `visualStep` screenshots are copied to `tta-report/screenshots/` |
 | Video     | `on`                  | Copied to `tta-report/videos/`, embedded as `<video>` in detail panel |
 | Trace     | `on`                  | Copied to `tta-report/traces/`, downloadable with step timestamps |
+
+### API Testing (`src/api/`)
+
+**Concept:** API specs live in `src/api/`, separate from the UI specs in `src/tests/`, and run under their own Playwright project named `api`. That project pins `baseURL` to `API_BASE_URL` (default `https://restful-booker.herokuapp.com`) and deliberately omits `devices[...]`, so no browser is launched. The `chromium` project keeps `testDir: './src/tests'` so UI and API suites never collect each other's files.
+
+**Why:** Both suites need a different `baseURL`, and only one of them needs a browser. A single top-level `testDir: './src'` would force UI and API tests to share one host and drag Chrome's launch settings, viewport, and video recording into every API request. Splitting by project is what keeps `TTA_ENV=stage` meaningful for the UI without pointing API tests at a UI host.
+
+**Q&A - why use this?**
+
+- **Q: Why did my new spec under `src/api/` report "no tests found"?** A: A path argument on the CLI filters files already collected from `testDir`; it never widens the search root. Before opening the spec, run `npx playwright test --project=api --list`. If the file is absent from that listing it is a config problem, and nothing in the test body can be at fault yet.
+- **Q: What must I name the file?** A: `*.spec.ts` with a **dot**. Playwright's default `testMatch` is `**/*.@(spec|test).?(c|m)[jt]s?(x)`, so `05_crud_spec.ts` with an underscore is silently never collected: it does not fail, it simply does not exist as far as the runner is concerned. The numeric prefix (`01_`, `02_`) is free to use because it sits before the dot.
+- **Q: Do I use the `request` fixture or `request.newContext()`?** A: The `request` fixture inherits the project's `baseURL` and is the default. Call `request.newContext()` only when one test needs its own headers, host, or timeout, and always `await ctx.dispose()` afterwards.
+- **Q: Why did my relative path ignore `baseURL`?** A: A leading double slash makes the URL protocol-relative, so `'//public/v2/users'` resolves to the host `public` and discards `baseURL` entirely. The symptom is `getaddrinfo ENOTFOUND`, not a 404. Use a single leading slash.
+
+```mermaid
+flowchart TD
+    C["playwright.config.ts"] --> P1["project: chromium<br/>testDir: src/tests<br/>baseURL from TTA_ENV"]
+    C --> P2["project: api<br/>testDir: src/api<br/>baseURL from API_BASE_URL"]
+    P1 --> B["Desktop Chrome<br/>1920 x 1080, video, trace"]
+    P2 --> R["request fixture<br/>no browser launched"]
+    R --> RB["restful-booker.herokuapp.com"]
+    R --> NC["request.newContext()<br/>own host and headers"]
+    NC --> GO["gorest.in"]
+```
+
+The `restful-booker` specs build up from a single call to a full authenticated flow:
+
+| Spec | Covers |
+|:-----|:-------|
+| `01_basic_ping.spec.ts` | `GET /ping` health check. Asserts **201**, which is genuinely what this API returns |
+| `02_post_operation.spec.ts` | `POST /booking`, asserting the echoed payload matches what was sent |
+| `03_newcontext_api.spec.ts` | `request.newContext()` against a different host with a custom `X-Trace-Id` header |
+| `04_put_operation.spec.ts` | Token, create, and update in one test, split into three `test.step` blocks |
+| `05_crud.spec.ts` | The same flow as separate tests, typed with interfaces and sequenced by `describe.serial` |
+
+```ts
+test.describe.serial('Restful Booker CRUD API', () => {
+    const bookingFlowState: BookingFlowState = {};
+
+    test('TC#1 @p0 - Create token', async ({ request }) => {
+        const responseData = await request.post(`${baseUrl}/auth`, { headers, data: creds });
+        bookingFlowState.token = (await responseData.json() as AuthTokenResponse).token;
+    });
+});
+```
+
+`04_put_operation.spec.ts` and `05_crud.spec.ts` deliberately show the two ways to sequence a dependent flow. Steps inside one test always run in order and share local variables. Separate tests need `describe.serial`, plus explicit state shared through an object, plus a guard that throws when an earlier test did not populate it. Reach for `describe.serial` when you want each stage reported as its own pass or fail; reach for `test.step` when the stages are only meaningful together.
+
+**`src/utils/APiHelper.ts`** is an empty `ApiHelper` class reserved for the generic GET/POST/PUT/PATCH/DELETE wrapper that these raw specs will eventually be refactored onto. It is a placeholder, so nothing imports it yet.
+
+A Postman collection covering the same endpoints, including the `PATCH` and `DELETE` cases not yet automated, is committed at [`docs/postman_api_collection/`](docs/postman_api_collection/) for manual exploration.
 
 ## Project Structure
 
@@ -227,16 +278,23 @@ await visualStep(page, 'Open the cart', async () => {
 │   ├── copilot-instructions.md  # Repo-wide rules for GitHub Copilot
 │   └── workflows/         # CI pipeline (GitHub Actions)
 ├── .env.example           # Committed template; CI copies it to .env
-├── docs/                  # Documentation
+├── docs/
+│   └── postman_api_collection/  # Restful Booker collection, incl. PATCH/DELETE
 ├── learnings/
 │   ├── NewFeature.md      # How the .env feature was built, step by step
-│   └── *.md               # Implementation notes (reporter wiring, dotenv, etc.)
+│   └── *.md               # Implementation notes (reporter wiring, dotenv, testDir scoping)
 ├── rules/                 # Project/test rules and conventions
 ├── src/
 │   ├── ai/
 │   │   ├── agents/        # RCA and Flaky AI analysis agents
 │   │   └── config/        # LLM provider configuration
-│   ├── api/               # API clients / request helpers
+│   ├── api/               # API specs, run by the `api` project (no browser)
+│   │   └── 01_restfulbooker_raw/
+│   │       ├── 01_basic_ping.spec.ts      # GET /ping, asserts 201
+│   │       ├── 02_post_operation.spec.ts  # POST /booking
+│   │       ├── 03_newcontext_api.spec.ts  # request.newContext(), separate host
+│   │       ├── 04_put_operation.spec.ts   # Auth + create + update via test.step
+│   │       └── 05_crud.spec.ts            # Same flow via describe.serial
 │   ├── config/
 │   │   ├── credentials.ts # STANDARD_USER / TTA_SECRET with demo fallbacks
 │   │   └── env.ts         # Loads .env once; requireEnv / envOr / assertEnv
@@ -264,6 +322,7 @@ await visualStep(page, 'Open the cart', async () => {
 │       ├── CustomReporter.ts    # TTA HTML reporter with AI tabs
 │       ├── DataGenerator.ts     # Faker-based test data (checkoutCustomer, etc.)
 │       ├── KBlogger.md          # Supported logger levels and examples
+│       ├── APiHelper.ts         # Placeholder for a generic HTTP verb wrapper
 │       ├── UtilElementLocator.ts # Logged locator wrapper (Flex type)
 │       ├── visualStep.ts        # Optional per-step screenshot attachments
 │       └── logger.ts            # Winston scoped logger
@@ -330,6 +389,7 @@ The base URL is resolved in `playwright.config.ts` based on the `TTA_ENV` enviro
 | `STANDARD_USER` / `TTA_SECRET` | `@config/credentials` | Yes for `e2e-checkout-env.spec.ts` |
 | `CHECKOUT_ITEM_ID` | `e2e-checkout-env.spec.ts` | Yes for that spec |
 | `CHECKOUT_FIRST_NAME` / `CHECKOUT_LAST_NAME` / `CHECKOUT_POSTAL_CODE` | `DataGenerator.checkoutCustomerFromEnv()` | No, Faker fills any that are unset |
+| `API_BASE_URL` | `api` project in `playwright.config.ts`, and every spec in `src/api/` | No, defaults to `https://restful-booker.herokuapp.com` |
 | `LOG_LEVEL` | `@utils/logger` | No, defaults to `info` |
 | `ATTACH_SCREENSHOTS` | `playwright.config.ts`, `@utils/visualStep` | No, defaults to `false` |
 | `TEST_ENV` / `TEST_AUTHOR` | `CustomReporter` header | No |
@@ -377,7 +437,22 @@ Run the fixture-driven checkout examples:
 npx playwright test src/tests/e2e/e2e-checkout_new_fixture.spec.ts
 ```
 
-Tests run in headed mode at a Full HD viewport (`1920 × 1080`) by default.
+Run only the API suite, or only the UI suite:
+
+```bash
+npx playwright test --project=api        # src/api, no browser launched
+npx playwright test --project=chromium   # src/tests, headed Chrome
+```
+
+List what a project will collect without running anything. This is the cheapest way to tell a
+config problem from a test problem, because a file missing from the listing was never collected:
+
+```bash
+npx playwright test --project=api --list
+```
+
+UI tests run in headed mode at a Full HD viewport (`1920 × 1080`) by default. API tests launch no
+browser at all, so they ignore the viewport, video, and trace settings.
 
 Run against a specific environment:
 
@@ -395,7 +470,8 @@ npx playwright show-report
 
 Defined in `playwright.config.ts`:
 
-- Test directory: `src/tests`
+- Two projects: `chromium` (`testDir: src/tests`) and `api` (`testDir: src/api`)
+- Spec files must be named `*.spec.ts`; an underscore before `spec` is never collected
 - Timeout: 60s per test, 10s per assertion
 - Fully parallel execution
 - Retries: 2 on CI, 0 locally
@@ -404,7 +480,7 @@ Defined in `playwright.config.ts`:
 - Screenshots: disabled by default; set `ATTACH_SCREENSHOTS=true` for `visualStep` and failure attachments
 - Video: always recorded
 - Trace: always captured
-- Browser project: Chromium (Desktop Chrome)
+- Browser: Chromium (Desktop Chrome) for the `chromium` project only; the `api` project defines no `devices[...]` and starts no browser
 
 ## Continuous Integration
 
@@ -415,7 +491,7 @@ Defined in `playwright.config.ts`:
 3. Installs dependencies (`npm ci`)
 4. Installs Playwright browsers with OS dependencies
 5. **Seeds `.env` with `cp .env.example .env`**
-6. Runs the Playwright test suite under `xvfb-run` (required because tests run headed at 1920 × 1080)
+6. Runs the Playwright test suite under `xvfb-run` (required because UI tests run headed at 1920 × 1080)
 7. Uploads the HTML report as a build artifact (30-day retention)
 
 Step 5 is not optional. `.env` is gitignored, so the runner checks out a repo without one, and the
@@ -430,6 +506,11 @@ mv .env.bak .env
 
 When real credentials replace the demo values, swap the seeding step for an `env:` block backed by
 GitHub Secrets. `STANDARD_USER` and `TTA_SECRET` are the keys `@config/credentials` reads.
+
+A plain `npx playwright test` now runs both projects, so CI reaches two live third-party hosts
+(`restful-booker.herokuapp.com` and `gorest.in`). Neither is under this project's control, so an
+outage on either turns the build red without a code change. Split the job with `--project=` if UI
+and API results need to fail independently.
 
 ## Agent Skills
 
@@ -463,7 +544,7 @@ suggestions and chat, which do not load skills the same way.
 | `pw-ci-configurator` | Editing `.github/workflows/playwright.yml` |
 | `feature-explainer` | An ELI5 page plus hand-drawn whiteboard for a shipped change |
 
-**Q&A — why use these?**
+**Q&A - why use these?**
 
 - **Q: How do I trigger one?** A: Describe the task in the words the skill's description lists, for example "make a page object for the cart" or "this test is flaky". The agent loads the matching skill itself. In Claude Code you can also invoke one by name.
 - **Q: Do skills change if I edit them mid-session?** A: No. Skills are snapshotted at session start, so restart the session after editing one.

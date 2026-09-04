@@ -59,9 +59,17 @@ export default defineConfig({
   projects: [
     {
       name: 'chromium',
+      testDir: './src/tests',
       use: {
         ...devices['Desktop Chrome'],
         viewport: { width: 1920, height: 1080 }
+      }
+    },
+    {
+      name: 'api',
+      testDir: './src/api',
+      use: {
+        baseURL: process.env.API_BASE_URL || 'https://restful-booker.herokuapp.com'
       }
     }
   ]

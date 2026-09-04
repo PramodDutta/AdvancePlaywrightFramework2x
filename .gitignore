@@ -17,3 +17,6 @@ node_modules/
 
 # Claude Code local machine settings (permissions granted on this machine only)
 .claude/settings.local.json
+
+# macOS
+.DS_Store
