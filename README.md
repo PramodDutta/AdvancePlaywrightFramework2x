@@ -492,7 +492,7 @@ A full syntax reference with runnable examples lives in [`jsonpath-cheatsheet.md
 
 ### Booking test data (`@testdata/booking.data`)
 
-**Concept:** Two builders return the same `Booking` shape with every field overridable. `buildBooking()` calls Faker directly; `buildBookingFromGenerator()` goes through [`DataGenerator`](#datagenerator) so random data has a single source.
+**Concept:** Two builders return the same `Booking` shape with every field overridable. Both go through [`DataGenerator`](#datagenerator), so random data has a single source; `buildBooking()` additionally pins check-in to `PINNED_CHECKIN` for specs that assert on a known date.
 
 **Why:** Hard-coded payloads make two tests collide on the same data, and a payload written inline cannot be partially pinned without retyping every field.
 
@@ -500,25 +500,29 @@ A full syntax reference with runnable examples lives in [`jsonpath-cheatsheet.md
 
 - **Q: When do I reach for it?** A: Every create or update call. Pin only the fields you assert on and let the rest vary.
 - **Q: What does it replace?** A: Inline object literals copied between specs, which drift apart the moment the API adds a field.
-- **Q: What's the gotcha?** A: The two builders produce different dates on purpose. `buildBooking` hardcodes `checkin: '2026-02-01'`, which `jsonpath-queries.e2e.spec.ts` asserts on, so it cannot be changed casually. `buildBookingFromGenerator` derives checkout from checkin and anchors to today, so its dates stay ordered and never age into the past.
+- **Q: What's the gotcha?** A: The two builders differ only in check-in. `buildBooking` pins it to `PINNED_CHECKIN` (`2026-02-01`) because `jsonpath-queries.e2e.spec.ts` asserts on that literal, so the constant cannot be changed casually. `buildBookingFromGenerator` anchors to today so bookings never age into the past. Both derive check-out from check-in, so a stay can never come out reversed.
 
 ```mermaid
 flowchart LR
     F["@faker-js/faker"] --> DG["DataGenerator<br/>number / bool / dateOffset / oneOf"]
-    DG --> B2["buildBookingFromGenerator&#40;&#41;<br/>dates relative to today"]
-    F --> B1["buildBooking&#40;&#41;<br/>checkin pinned to 2026-02-01"]
+    DG --> B2["buildBookingFromGenerator&#40;&#41;<br/>checkin = today + 1"]
+    B2 --> B1["buildBooking&#40;&#41;<br/>overrides checkin to PINNED_CHECKIN"]
     B1 --> S["spec payload"]
     B2 --> S
+    DG -.->|"dateOffset&#40;nights, checkin&#41;"| CO["checkout always after checkin"]
 ```
 
 ```ts
-import { buildBookingFromGenerator } from '@testdata/booking.data';
+import { buildBooking, buildBookingFromGenerator } from '@testdata/booking.data';
 
-// everything random, dates ordered and relative to today
+// everything random, check-in is tomorrow, check-out three nights later
 const booking = buildBookingFromGenerator();
 
 // pin what you assert on, vary the rest; second arg sets the stay length
 const longStay = buildBookingFromGenerator({ firstname: 'Pramod', totalprice: 950 }, 7);
+
+// check-in pinned to 2026-02-01, check-out still derived from it
+const pinned = buildBooking();
 ```
 
 A Postman collection covering the same endpoints, including cases not yet automated, is committed at [`docs/postman_api_collection/`](docs/postman_api_collection/) for manual exploration.
