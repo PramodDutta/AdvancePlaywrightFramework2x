@@ -78,6 +78,37 @@ export class DataGenerator {
         return faker.location.zipCode();
     }
 
+    // ---------- primitives ----------
+
+    /** Whole number in an inclusive range, e.g. a price or a quantity. */
+    static number(min: number, max: number): number {
+        return faker.number.int({ min, max });
+    }
+
+    /** Random true/false, for flags such as depositpaid. */
+    static bool(): boolean {
+        return faker.datatype.boolean();
+    }
+
+    /**
+     * Date as `YYYY-MM-DD`, offset from a reference date.
+     * Pass a negative offset for the past. `from` defaults to today, so
+     * generated dates move with the calendar instead of ageing into the past.
+     */
+    static dateOffset(days: number, from: Date = new Date()): string {
+        const d = new Date(from);
+        d.setUTCDate(d.getUTCDate() + days);
+        return d.toISOString().slice(0, 10);
+    }
+
+    /** Pick one item from a list. Throws on an empty list rather than returning undefined. */
+    static oneOf<T>(items: readonly T[]): T {
+        if (items.length === 0) {
+            throw new Error('[DataGenerator] oneOf() needs a non-empty list');
+        }
+        return faker.helpers.arrayElement(items);
+    }
+
     // ---------- composites ----------
 
     /** Customer info for the TTACart checkout step-one form. */

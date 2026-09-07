@@ -60,6 +60,9 @@ export default defineConfig({
     {
       name: 'chromium',
       testDir: './src/tests',
+      // API specs live under src/tests/apisTests but belong to the `api` project.
+      // Without this they would also run here, against the UI baseURL and a real browser.
+      testIgnore: '**/apisTests/**',
       use: {
         ...devices['Desktop Chrome'],
         viewport: { width: 1920, height: 1080 }
@@ -67,7 +70,8 @@ export default defineConfig({
     },
     {
       name: 'api',
-      testDir: './src/api',
+      testDir: './src/tests/apisTests',
+      // No devices[...] spread, so no browser is launched for pure HTTP tests.
       use: {
         baseURL: process.env.API_BASE_URL || 'https://restful-booker.herokuapp.com'
       }
