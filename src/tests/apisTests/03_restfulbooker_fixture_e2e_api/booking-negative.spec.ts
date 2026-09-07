@@ -1,91 +1,48 @@
 import { test, expect } from '@fixtures/booker.fixture';
 import { buildBookingFromGenerator } from '@testdata/booking.data';
-import { createLogger } from '@utils/logger';
-
-const log = createLogger('booking-negative');
+import type { BookingApi } from '../../../api/BookingApi';
 
 /**
- * Negative paths for restful-booker. Every status below was verified against the
- * live API, because this service does not follow the codes you would guess:
+ * Statuses below were verified against the live API. restful-booker does not
+ * return what you would guess: a bad token is 403 (not 401), a malformed payload
+ * is 500 (not 400), and bad credentials come back 200 with { reason }.
  *
- *   - an unknown or expired token is 403 Forbidden, never 401 Unauthorised
- *   - a malformed payload is 500, not 400 Bad Request
- *   - bad credentials come back 200 with { reason: "Bad credentials" }, so the
- *     status code alone will happily tell you the login worked
- *
- * These use the raw *Response() methods so the status can be asserted directly
- * instead of being converted into a thrown error by the service object.
+ * The raw *Response() methods are used so the status can be asserted directly,
+ * instead of the service object converting it into a thrown error.
  */
+const REJECTIONS: [name: string, call: (api: BookingApi) => Promise<{ status(): number }>, status: number][] = [
+    ['GET unknown id -> 404', (api) => api.getBookingResponse(99_999_999), 404],
+    ['GET non-numeric id -> 404', (api) => api.getBookingResponse('abc' as unknown as number), 404],
+    ['POST partial payload -> 500', (api) => api.createBookingResponse({ firstname: 'X' }), 500],
+    ['POST empty body -> 500', (api) => api.createBookingResponse({}), 500],
+];
+
 test.describe('@negative @P0 Level 3 - Booking negative paths', () => {
-    test('GET /booking/{id} returns 404 for an id that does not exist', async ({ bookingApi }) => {
-        const ghostId = 99_999_999;
+    for (const [name, call, status] of REJECTIONS) {
+        test(name, async ({ bookingApi }) => {
+            expect((await call(bookingApi)).status()).toBe(status);
+        });
+    }
 
-        const response = await bookingApi.getBookingResponse(ghostId);
-
-        log.info(`GET /booking/${ghostId} responded ${response.status()}`);
-        expect(response.status()).toBe(404);
-        expect(response.ok()).toBe(false);
+    test('typed methods throw instead of returning a Booking-shaped lie', async ({ bookingApi }) => {
+        await expect(bookingApi.getBooking(99_999_999)).rejects.toThrow(/failed: 404/);
+        // Status is 200 here; only the body reveals the failure.
+        await expect(bookingApi.auth('wrong', 'wrong')).rejects.toThrow(/Reason: Bad credentials/);
     });
 
-    test('GET /booking/{id} returns 404 for a non-numeric id', async ({ bookingApi }) => {
-        // Cast because the API is being probed with a deliberately wrong type.
-        const response = await bookingApi.getBookingResponse('abc' as unknown as number);
-
-        expect(response.status()).toBe(404);
-    });
-
-    test('getBooking() throws rather than returning an empty object on a 404', async ({
-        bookingApi,
-    }) => {
-        // The typed helper must not hand back a Booking-shaped lie. A caller that
-        // forgets to check would otherwise assert against undefined fields.
-        await expect(bookingApi.getBooking(99_999_999)).rejects.toThrow(
-            /GET \/booking\/99999999 failed: 404/,
-        );
-    });
-
-    test('POST /booking rejects a payload missing required fields', async ({ bookingApi }) => {
-        // firstname only: lastname, totalprice, depositpaid and bookingdates are absent.
-        const response = await bookingApi.createBookingResponse({ firstname: 'Incomplete' });
-
-        log.info(`POST /booking with a partial payload responded ${response.status()}`);
-        // 500, not the 400 a well-behaved API would return.
-        expect(response.status()).toBe(500);
-        expect(response.ok()).toBe(false);
-    });
-
-    test('POST /booking rejects an empty body', async ({ bookingApi }) => {
-        const response = await bookingApi.createBookingResponse({});
-
-        expect(response.status()).toBe(500);
-    });
-
-    test('PUT /booking/{id} is forbidden when the token is invalid', async ({ bookingApi }) => {
+    test('PUT with an invalid token is forbidden and changes nothing', async ({ bookingApi }) => {
         const { bookingid } = await bookingApi.createBooking(buildBookingFromGenerator());
 
-        // An explicit token is honoured as-is: passing one opts out of the
-        // auto-renewal in sendAuthed(), which is what keeps this assertion honest.
+        // An explicit token opts out of auto-renewal, which keeps this assertion honest.
         const response = await bookingApi.updateBookingResponse(
             bookingid,
             buildBookingFromGenerator({ firstname: 'ShouldNotStick' }),
             'not-a-real-token',
         );
-
-        log.info(`PUT /booking/${bookingid} with a bad token responded ${response.status()}`);
         expect(response.status()).toBe(403);
 
-        // The booking must be untouched by the rejected write.
-        const stored = await bookingApi.getBooking(bookingid);
-        expect(stored.firstname).not.toBe('ShouldNotStick');
-
+        // Asserting the status is only half a negative test: prove nothing was written.
+        expect((await bookingApi.getBooking(bookingid)).firstname).not.toBe('ShouldNotStick');
         await bookingApi.deleteBooking(bookingid);
-    });
-
-    test('POST /auth with bad credentials yields no token', async ({ bookingApi }) => {
-        // The status here is 200. Only the body reveals the failure, which is why
-        // BookingApi.auth() checks for a token instead of trusting isSuccess().
-        await expect(bookingApi.auth('wrong-user', 'wrong-password')).rejects.toThrow(
-            /no token\. Reason: Bad credentials/,
-        );
     });
 });

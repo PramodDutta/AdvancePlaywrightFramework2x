@@ -400,7 +400,7 @@ Renewal is capped at one retry. A second 403 is a real failure (wrong credential
 
 ### Negative API tests (`booking-negative.spec.ts`)
 
-**Concept:** Seven specs covering the failure paths for create, read, update, and auth, asserting the status codes restful-booker **actually** returns rather than the ones a well-behaved API would.
+**Concept:** Six specs covering the failure paths for create, read, update, and auth, asserting the status codes restful-booker **actually** returns rather than the ones a well-behaved API would. The four plain status checks are table-driven, so adding a case is one line.
 
 **Why:** A suite that only walks the happy path cannot tell a working service from one that returns 200 with an error body. These are the assertions that catch a silent auth regression.
 
@@ -426,20 +426,18 @@ flowchart LR
 ```
 
 ```ts
-test('PUT /booking/{id} is forbidden when the token is invalid', async ({ bookingApi }) => {
-    const { bookingid } = await bookingApi.createBooking(buildBookingFromGenerator());
+const REJECTIONS: [name: string, call: (api: BookingApi) => Promise<{ status(): number }>, status: number][] = [
+    ['GET unknown id -> 404', (api) => api.getBookingResponse(99_999_999), 404],
+    ['GET non-numeric id -> 404', (api) => api.getBookingResponse('abc' as unknown as number), 404],
+    ['POST partial payload -> 500', (api) => api.createBookingResponse({ firstname: 'X' }), 500],
+    ['POST empty body -> 500', (api) => api.createBookingResponse({}), 500],
+];
 
-    const response = await bookingApi.updateBookingResponse(
-        bookingid,
-        buildBookingFromGenerator({ firstname: 'ShouldNotStick' }),
-        'not-a-real-token',
-    );
-    expect(response.status()).toBe(403);
-
-    // A rejected write must not have changed anything.
-    const stored = await bookingApi.getBooking(bookingid);
-    expect(stored.firstname).not.toBe('ShouldNotStick');
-});
+for (const [name, call, status] of REJECTIONS) {
+    test(name, async ({ bookingApi }) => {
+        expect((await call(bookingApi)).status()).toBe(status);
+    });
+}
 ```
 
 Asserting the status is only half a negative test. The read-back is what proves the rejected write did not partially apply.

@@ -47,7 +47,6 @@ export class BookingApi {
     private baseUrl: string;
     private username: string;
     private password: string;
-    /** Token minted by this instance. Undefined until first use or after invalidation. */
     private cachedToken?: string;
 
     constructor(
@@ -67,14 +66,9 @@ export class BookingApi {
 
     // ---------- token lifecycle ----------
 
-    /**
-     * The managed token, minted on first use and reused after that.
-     * Pass `true` to discard the cached value and mint a fresh one.
-     */
+    /** Managed token, minted on first use. Pass `true` to force a re-auth. */
     async getToken(forceRefresh = false): Promise<string> {
-        if (forceRefresh || !this.cachedToken) {
-            this.cachedToken = await this.auth(this.username, this.password);
-        }
+        if (forceRefresh || !this.cachedToken) this.cachedToken = await this.auth();
         return this.cachedToken;
     }
 
@@ -84,32 +78,18 @@ export class BookingApi {
     }
 
     /**
-     * Run an authenticated request, renewing the token when the API rejects it.
-     *
-     * When `explicitToken` is given the caller owns the token: it is sent as-is and
-     * a 403 is returned untouched, so a negative test can still assert on it.
-     * When it is omitted the token is managed here, and a 403 triggers exactly one
-     * re-auth plus retry. That covers a token that is missing, expired, or
-     * invalidated server-side by another run.
+     * Send an authenticated request. An explicit token is sent as-is so a negative
+     * test can still assert a 403; the managed token re-auths once and retries.
      */
     private async sendAuthed(
         send: (token: string) => Promise<APIResponse>,
         explicitToken?: string,
     ): Promise<APIResponse> {
-        if (explicitToken !== undefined) {
-            return send(explicitToken);
-        }
+        if (explicitToken !== undefined) return send(explicitToken);
 
         const response = await send(await this.getToken());
-        if (response.status() !== TOKEN_REJECTED) {
-            return response;
-        }
-
-        // Renew once. A second 403 is a real failure (bad credentials, or the
-        // endpoint rejects us for a reason unrelated to token freshness).
-        return send(await this.getToken(true));
+        return response.status() === TOKEN_REJECTED ? send(await this.getToken(true)) : response;
     }
-
 
     async getAllBookings(filters?: BookingFilters): Promise<BookingId[]> {
         const response = await this.apiHelper.get(`${this.baseUrl}/booking`, {
