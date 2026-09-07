@@ -385,15 +385,18 @@ flowchart TD
 ```
 
 ```ts
+// the whole lifecycle: `??=` mints once, then reuses, and skips auth() on a hit
+async getToken(forceRefresh = false): Promise<string> {
+    if (forceRefresh) this.invalidateToken();
+    return (this.cachedToken ??= await this.auth());
+}
+
 // managed: renews on a 403 and retries, no token plumbing in the spec
 await bookingApi.updateBooking(bookingId, payload);
 
 // explicit: sent verbatim, 403 comes back untouched so it can be asserted
 const response = await bookingApi.updateBookingResponse(bookingId, payload, 'not-a-real-token');
 expect(response.status()).toBe(403);
-
-bookingApi.invalidateToken();          // force the next managed call to re-auth
-const fresh = await bookingApi.getToken(true);
 ```
 
 Renewal is capped at one retry. A second 403 is a real failure (wrong credentials, or a rejection unrelated to token freshness) and is surfaced rather than looped on.

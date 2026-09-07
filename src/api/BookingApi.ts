@@ -68,8 +68,8 @@ export class BookingApi {
 
     /** Managed token, minted on first use. Pass `true` to force a re-auth. */
     async getToken(forceRefresh = false): Promise<string> {
-        if (forceRefresh || !this.cachedToken) this.cachedToken = await this.auth();
-        return this.cachedToken;
+        if (forceRefresh) this.invalidateToken();
+        return (this.cachedToken ??= await this.auth());
     }
 
     /** Drop the cached token so the next managed call mints a new one. */
@@ -78,7 +78,7 @@ export class BookingApi {
     }
 
     /**
-     * Send an authenticated request. An explicit token is sent as-is so a negative
+     * Send an authenticated request. An explicit token goes out as-is so a negative
      * test can still assert a 403; the managed token re-auths once and retries.
      */
     private async sendAuthed(
@@ -86,9 +86,8 @@ export class BookingApi {
         explicitToken?: string,
     ): Promise<APIResponse> {
         if (explicitToken !== undefined) return send(explicitToken);
-
-        const response = await send(await this.getToken());
-        return response.status() === TOKEN_REJECTED ? send(await this.getToken(true)) : response;
+        const res = await send(await this.getToken());
+        return res.status() === TOKEN_REJECTED ? send(await this.getToken(true)) : res;
     }
 
     async getAllBookings(filters?: BookingFilters): Promise<BookingId[]> {
