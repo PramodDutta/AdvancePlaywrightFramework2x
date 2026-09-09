@@ -198,6 +198,117 @@ lane, no matter what `--workers` says.
 
 ---
 
+## Capacity planning: how long will my suite take?
+
+Four inputs: how many tests, how many machines, how many workers each, and how much RAM per
+machine. RAM does not speed anything up; it only sets a ceiling on workers.
+
+### The formula
+
+```text
+                 T x D
+    time  =  ---------------
+              M x W x E
+
+
+    T = number of tests
+    D = mean seconds per test          (the input that matters most)
+    M = machines, i.e. --shard=k/M
+    W = workers per machine
+    E = parallel efficiency, use 0.85  (workers contend for CPU)
+```
+
+Then check the worker count actually fits the machine:
+
+```text
+    W_max_by_RAM  =  (free GB - 1) / cost_per_worker
+
+        free GB           ~= (total GB x 0.85) - 3     OS, editor, browser tabs
+        cost_per_worker   =  0.7 GB headed  |  0.4 GB headless
+        fixed 1 GB        =  the Playwright runner itself
+
+    W_actual = min( W_you_asked_for , W_max_by_RAM , logical_cores / 2 )
+```
+
+### Values for D, measured on this repo
+
+| Test type | Mean duration | Notes |
+|:----------|--------------:|:------|
+| UI, headed at 1920x1080 | **6.04s** | this repo's current config |
+| UI, headless | **1.74s** | 3.47x faster per test, same tests |
+| API (no browser) | **0.59s** | `src/tests/apisTests/` |
+
+Use your own D if you have it. Time a representative few hundred tests and divide. D dominates
+every other term, so a measured D beats a guessed one by more than any amount of tuning.
+
+### Worked example
+
+12,000 tests, 4 machines, 8 workers each, 32 GB per machine, headless.
+
+```text
+1. Does W fit?   free = (32 x 0.85) - 3 = 24.2 GB
+                 W_max = (24.2 - 1) / 0.4 = 58 workers      8 fits easily
+2. Time          (12000 x 1.74) / (4 x 8 x 0.85)
+                 = 20880 / 27.2
+                 = 768s = 12m 48s
+```
+
+### Ready reckoner, 12,000 tests
+
+Headed at 6.04s per test:
+
+| Machines | W=4 | W=8 | W=16 | W=32 |
+|---------:|----:|----:|-----:|-----:|
+| 1  | 5h 55m | 2h 57m | 1h 28m | 44m |
+| 2  | 2h 57m | 1h 28m | 44m | 22m |
+| 5  | 1h 11m | 36m | 18m | 9m |
+| 10 | 36m | 18m | 9m | 4m |
+| 20 | 18m | 9m | 4m | 2m |
+
+Headless at 1.74s per test:
+
+| Machines | W=4 | W=8 | W=16 | W=32 |
+|---------:|----:|----:|-----:|-----:|
+| 1  | 1h 42m | 51m | 26m | 13m |
+| 2  | 51m | 26m | 13m | 6m |
+| 5  | 20m | 10m | 5m | 3m |
+| 10 | 10m | 5m | 3m | 1m |
+| 20 | 5m | 3m | 1m | 38s |
+
+Compare the two tables at the same cell. Switching to headless is worth roughly the same as
+**tripling your hardware**, and it is one config flag.
+
+### RAM ceiling by machine size
+
+| Machine RAM | Free for tests | Max workers, headed | Max workers, headless |
+|:------------|---------------:|--------------------:|----------------------:|
+| 8 GB   | ~3.8 GB   | 4   | 6   |
+| 16 GB  | ~10.6 GB  | 13  | 23  |
+| 32 GB  | ~24.2 GB  | 33  | 57  |
+| 64 GB  | ~51.4 GB  | 72  | 125 |
+| 128 GB | ~105.8 GB | 149 | 262 |
+
+These are ceilings, not targets. **Above 16 GB you will hit the CPU limit long before the RAM
+limit**, so `logical_cores / 2` is almost always the binding term. Adding RAM to run more workers
+is the wrong purchase; adding cores or machines is the right one.
+
+### What the formula does not model
+
+The estimate is a floor. Real runs come in above it:
+
+- **Retries.** This repo sets `retries: 2` on CI. A 2% flake rate on 12,000 tests is 240 tests
+  running up to three times, and flake rates climb with suite size.
+- **Uneven test lengths.** One 5-minute test in a 12,000-test suite sets a hard floor no amount of
+  sharding beats. Playwright cannot split a single test.
+- **Long-lived workers.** At 12,000 tests and 8 workers each worker runs 1,500 tests, and browser
+  memory creeps over a lifetime that long in a way a short run never reveals.
+- **Fixed costs per shard.** Checkout, `npm ci`, and browser download run once per machine. At 20
+  shards that overhead can exceed the test time itself.
+- **E is a convention, not a measurement.** 0.85 is a reasonable planning number; contention
+  effects only become measurable on a suite far larger than this one.
+
+---
+
 ## Four things that bite
 
 **1. Headed mode opens one window per worker.**
