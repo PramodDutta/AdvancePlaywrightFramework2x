@@ -595,6 +595,7 @@ A Postman collection covering the same endpoints, including cases not yet automa
 │   └── workflows/         # CI pipeline (GitHub Actions)
 ├── .env.example           # Committed template; CI copies it to .env
 ├── docs/
+│   ├── Playwright-Worker.md     # Parallel workers: measured timings, RAM per worker
 │   └── postman_api_collection/  # Restful Booker collection, incl. PATCH/DELETE
 ├── learnings/
 │   ├── NewFeature.md      # How the .env feature was built, step by step
@@ -783,6 +784,19 @@ Run against a specific environment:
 ```bash
 TTA_ENV=stage npx playwright test
 ```
+
+Control parallelism:
+
+```bash
+npx playwright test --workers=4     # pin the worker count
+npx playwright test --workers=1     # serial, for debugging a suite-only failure
+npx playwright test --workers=50%   # a share of cores, portable across machines
+```
+
+`fullyParallel: true` splits tests **within** a file, not just file against file, so two tests in
+one spec land on different workers. `test.describe.serial` caps a whole file at one worker no
+matter what `--workers` says. See [`docs/Playwright-Worker.md`](docs/Playwright-Worker.md) for
+measured timings, per-worker memory cost, and a worker-count table by system RAM.
 
 View the HTML report:
 
