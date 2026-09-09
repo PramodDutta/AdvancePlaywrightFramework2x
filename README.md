@@ -522,11 +522,13 @@ flowchart TD
 import createBookingSchema from '@testdata/schemas/create-booking.schema.json';
 import { SchemaValidator } from '@utils/SchemaValidator';
 
-test('the POST /booking response matches the create-booking schema', async ({ bookingApi }) => {
+test('@P0 @schema Level 5 - POST /booking matches the create-booking schema', async ({ bookingApi }) => {
     const body = await bookingApi.createBooking(buildBookingFromGenerator());
 
     // one call covers every field in the response
     SchemaValidator.assertValid(createBookingSchema, body, 'POST /booking');
+
+    await bookingApi.deleteBooking(body.bookingid);
 });
 ```
 
