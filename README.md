@@ -249,7 +249,8 @@ The suite is a deliberate four-level progression. Each level solves a problem th
 | 1 | `01_restfulbooker_raw/` | Raw `request` fixture, status codes, `test.step` vs `describe.serial` | Every spec repeats headers, URLs, and JSON parsing |
 | 2 | `02_restfulbooker_apiHelper/` | `ApiHelper` wraps the five verbs behind one call | Specs still know about tokens and endpoint paths |
 | 3 | `03_restfulbooker_fixture_e2e_api/` | `BookingApi` service object, a fixture that mints the token, self-renewing auth, and negative paths | Reading deep response fields by hand |
-| 4 | `04_jsonpath_plus/` | `JSONPath` queries instead of manual property chains | - |
+| 4 | `04_jsonpath_plus/` | `JSONPath` queries instead of manual property chains | Reads are still per-field; nothing checks the response as a whole |
+| 5 | `05_ajv_json_schema/` | `SchemaValidator` checks the whole response against a JSON Schema at runtime | - |
 
 ### 01 - Raw API specs
 
@@ -317,6 +318,8 @@ expect(api.isSuccess(response)).toBe(true);
 const body = await api.parseJsonResponse<CreateBookingResponse>(response);
 expect(body.bookingid).toBeGreaterThan(0);
 ```
+
+`parseJsonResponse<T>()` is a **cast, not a check**: the type is erased at compile time, so a response missing `bookingid` still satisfies it at runtime. [Level 05](#05---json-schema-validation-ajv) adds the runtime counterpart.
 
 `callApiWithRetry()` polls until a caller-supplied `condition(response)` returns true, defaulting to 3 attempts 5s apart. Use it for endpoints that are eventually consistent, not to paper over a flaky assertion.
 
@@ -491,6 +494,55 @@ const positives = JSONPath({ path: '$[?(@.bookingid > 0)]', json: list });
 
 A full syntax reference with runnable examples lives in [`jsonpath-cheatsheet.md`](src/tests/apisTests/04_jsonpath_plus/jsonpath-cheatsheet.md), backed by the sample document [`store.json`](src/tests/apisTests/04_jsonpath_plus/store.json).
 
+### 05 - JSON schema validation (`ajv`)
+
+**Concept:** `SchemaValidator` checks a live response against a JSON Schema file at runtime, so a dropped, renamed, or retyped field fails the test instead of slipping through.
+
+**Why:** A TypeScript `interface` is erased at compile time, so `parseJsonResponse<CreateBookingResponse>()` is a cast, not a check. A response missing `bookingid` entirely still satisfies that type at runtime.
+
+**Q&A - why use this?**
+
+- **Q: When do I reach for it?** A: Once per endpoint, on the response body. It covers every field at once, so you stop writing a `expect(...).toBeTruthy()` per key.
+- **Q: What does it replace?** A: Per-spec interfaces plus a handful of field assertions that only cover the two or three fields that test happened to care about.
+- **Q: What's the gotcha?** A: A green schema test does not prove the schema is right. An empty schema `{}` validates everything, so confirm a new schema fails when you deliberately break one field before trusting it.
+
+The schema is strict at every level (`additionalProperties: false` on the root, on `booking`, and on `bookingdates`), so an unannounced new field fails the build rather than passing silently. It checks shape only, types plus required keys, with no value constraints, so it stays readable. `additionalneeds` is in `properties` but deliberately **not** in `required`: it is absent on a real share of live bookings, so requiring it would fail at random.
+
+```mermaid
+flowchart TD
+    R["POST /booking response"] --> V["SchemaValidator.assertValid&#40;&#41;"]
+    S["create-booking.schema.json"] --> C["ajv.compile&#40;&#41;<br/>cached per schema"]
+    C --> V
+    F["ajv-formats"] -.->|"enables format: date"| C
+    V --> OK["valid -> test continues"]
+    V --> BAD["invalid -> throw listing<br/>every violation at once"]
+```
+
+```ts
+import createBookingSchema from '@testdata/schemas/create-booking.schema.json';
+import { SchemaValidator } from '@utils/SchemaValidator';
+
+test('the POST /booking response matches the create-booking schema', async ({ bookingApi }) => {
+    const body = await bookingApi.createBooking(buildBookingFromGenerator());
+
+    // one call covers every field in the response
+    SchemaValidator.assertValid(createBookingSchema, body, 'POST /booking');
+});
+```
+
+`validate()` is the non-throwing counterpart, returning `{ valid, errors }` when you would rather assert on the result than fail on it.
+
+Failures name the field, because Ajv's raw `ErrorObject`s do not:
+
+```
+[SchemaValidator] POST /booking does not match schema:
+  - /booking/totalprice must be string
+```
+
+Missing and extra-property errors arrive with an empty `instancePath`, so `SchemaValidator.describe()` splices the key out of `params` to produce `/booking/discount must NOT have additional properties` rather than a bare `must NOT have additional properties`.
+
+Two Ajv details worth knowing. The schema is **draft-07**: Ajv 8's default export only understands draft-07, and a `$schema` of `2020-12` needs the separate `ajv/dist/2020` entry point or it throws `no schema with key or ref`. And `"format": "date"` does nothing until `ajv-formats` is registered, which is why the util wraps its instance in `addFormats(new Ajv({ allErrors: true }))`.
+
 ### Booking test data (`@testdata/booking.data`)
 
 **Concept:** Two builders return the same `Booking` shape with every field overridable. Both go through [`DataGenerator`](#datagenerator), so random data has a single source; `buildBooking()` additionally pins check-in to `PINNED_CHECKIN` for specs that assert on a known date.
@@ -568,6 +620,8 @@ A Postman collection covering the same endpoints, including cases not yet automa
 │   │   ├── CheckoutCompletePage.ts
 │   │   └── ItemDetailPage.ts
 │   ├── testdata/
+│   │   ├── schemas/
+│   │   │   └── create-booking.schema.json # Draft-07, strict, additionalneeds optional
 │   │   ├── booking.data.ts    # buildBooking + buildBookingFromGenerator
 │   │   └── logintestdata.json # Valid and negative login accounts
 │   ├── tests/
@@ -577,7 +631,8 @@ A Postman collection covering the same endpoints, including cases not yet automa
 │   │   │   ├── 03_restfulbooker_fixture_e2e_api/
 │   │   │   │   ├── booking-crud.e2e.spec.ts  # Happy-path lifecycle
 │   │   │   │   └── booking-negative.spec.ts  # 404 / 500 / 403 / bad creds
-│   │   │   └── 04_jsonpath_plus/            # JSONPath queries + cheatsheet
+│   │   │   ├── 04_jsonpath_plus/            # JSONPath queries + cheatsheet
+│   │   │   └── 05_ajv_json_schema/          # Runtime contract checks via Ajv
 │   │   ├── e2e/
 │   │   │   ├── e2e-checkout.spec.ts              # Full checkout via visualStep
 │   │   │   ├── e2e-checkout-env.spec.ts          # Same flow, every input from .env
@@ -588,6 +643,7 @@ A Postman collection covering the same endpoints, including cases not yet automa
 │       ├── CustomReporter.ts    # TTA HTML reporter with AI tabs
 │       ├── DataGenerator.ts     # Faker-based test data (checkoutCustomer, etc.)
 │       ├── KBlogger.md          # Supported logger levels and examples
+│       ├── SchemaValidator.ts   # Ajv runtime response validation
 │       ├── ApiHelper.ts         # Generic GET/POST/PUT/PATCH/DELETE wrapper
 │       ├── UtilElementLocator.ts # Logged locator wrapper (Flex type)
 │       ├── visualStep.ts        # Optional per-step screenshot attachments
