@@ -365,6 +365,59 @@ test('update the booking (token comes from the fixture)', async ({ bookingApi, b
 });
 ```
 
+### The same lifecycle, twice (`booking-crud-end-to-end.ponytail.spec.ts`)
+
+**Concept:** A second copy of the lifecycle spec sits beside the original, covering the same create,
+update, read-back, and delete in 33 lines instead of 73. Both run; they are kept together on purpose
+so the diff is readable.
+
+**Why:** Most of what a spec accumulates is machinery that reports something the tooling already
+reports, and that is easier to see side by side than to describe.
+
+**Q&A - why use this?**
+
+- **Q: When do I reach for it?** A: When reviewing your own spec. Ask of each line whether anything
+  else in the run already records it.
+- **Q: What does it replace?** A: `test.step` wrappers, response attachments, and log lines that
+  restate their own step names.
+- **Q: What's the gotcha?** A: The cuts are only safe because `playwright.config.ts` sets
+  `trace: 'on'`. Turn tracing off and the attachments stop being redundant.
+
+| Cut | Why it was safe |
+|:----|:----------------|
+| `test.step` around single calls | The trace already lists every request with timings |
+| `testInfo.attach` of the body | Same trace already holds it |
+| Ten `log.info` lines | Each restated its own step name |
+| `buildBooking` | `buildBookingFromGenerator` gives ordered, today-relative dates |
+| Explicit `bookerToken` | Omitting it routes through the managed path, which re-auths on a 403 |
+
+```mermaid
+flowchart LR
+    O["booking-crud.e2e.spec.ts<br/>73 lines"] --> C{"does the run<br/>already record it?"}
+    C -->|"trace: 'on' logs it"| D["cut: steps, attachments, logs"]
+    C -->|"no, it is the assertion"| K["keep: every expect&#40;&#41;"]
+    D --> P["ponytail spec<br/>33 lines, 3 tests"]
+    K --> P
+```
+
+```ts
+test('update the booking, then read it back', async ({ bookingApi }) => {
+    // No token argument: BookingApi re-auths on a 403 and retries. Passing one opts out.
+    const updated = await bookingApi.updateBooking(
+        bookingId,
+        buildBookingFromGenerator({ firstname: 'E2E', lastname: 'Updated', totalprice: 950 }),
+    );
+    expect(updated).toMatchObject({ lastname: 'Updated', totalprice: 950 });
+
+    // The GET, not the PUT echo, is what proves it persisted.
+    expect((await bookingApi.getBooking(bookingId)).lastname).toBe('Updated');
+});
+```
+
+Both files keep three tests. Test granularity was left alone deliberately: `describe.serial` reports
+each stage as its own pass or fail, and that is a design decision about reporting, not machinery to
+trim. Every `expect` survived for the same reason.
+
 ### Token renewal (`BookingApi.sendAuthed`)
 
 **Concept:** `BookingApi` caches the token it mints and routes every authenticated call through `sendAuthed()`. When the API answers **403**, it re-auths once and replays the request.
@@ -633,6 +686,7 @@ A Postman collection covering the same endpoints, including cases not yet automa
 │   │   │   ├── 02_restfulbooker_apiHelper/  # Same calls through ApiHelper
 │   │   │   ├── 03_restfulbooker_fixture_e2e_api/
 │   │   │   │   ├── booking-crud.e2e.spec.ts  # Happy-path lifecycle
+│   │   │   │   ├── booking-crud-end-to-end.ponytail.spec.ts # Same, 33 lines
 │   │   │   │   └── booking-negative.spec.ts  # 404 / 500 / 403 / bad creds
 │   │   │   ├── 04_jsonpath_plus/            # JSONPath queries + cheatsheet
 │   │   │   └── 05_ajv_json_schema/          # Runtime contract checks via Ajv
