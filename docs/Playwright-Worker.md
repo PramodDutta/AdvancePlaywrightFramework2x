@@ -1,17 +1,33 @@
 # Playwright Worker Lanes
 
-How Playwright splits tests across parallel worker processes, measured on this repo.
+Playwright splits your tests across parallel worker processes. Each worker is an isolated lane with
+its own browser. Understanding what fills those lanes, and what pins everything into one, is the
+whole of test parallelism.
 
-Every number below was produced by running the suite, not quoted from documentation.
+Every number below was produced by running the suite on this repo, not quoted from documentation.
 
 > Playwright 1.62.1 &middot; 16 logical cores &middot; macOS &middot; 4 tests across 3 spec files in [`src/tests/e2e/`](../src/tests/e2e/)
+> &middot; measured 2026-09-09
+
+## Contents
+
+- [The mental model](#the-mental-model)
+- [Measured on this repo](#measured-on-this-repo)
+- [How many workers can my machine take?](#how-many-workers-can-my-machine-take)
+- [Capacity planning: how long will my suite take?](#capacity-planning-how-long-will-my-suite-take)
+- [The commands](#the-commands)
+- [Proof, three ways](#proof-three-ways)
+- [What controls it](#what-controls-it)
+- [Four things that bite](#four-things-that-bite)
+- [The one-line rule](#the-one-line-rule)
 
 ---
 
 ## The mental model
 
 A **worker** is an isolated process with its own browser. Tests are handed out to whatever
-lanes are free. The only question is how many lanes exist.
+lanes are free. Four tests, one browser each: the only question is how many lanes they get to
+spread across.
 
 ```mermaid
 flowchart LR
@@ -28,8 +44,12 @@ flowchart LR
     end
 ```
 
-The two fixture tests live in the **same file** and still land in different lanes. That is
-`fullyParallel: true` doing its job: it works at test level, not file level.
+Read the two halves against each other:
+
+- **Four lanes, 7.8s.** The two fixture tests live in the **same file** and still land in different
+  lanes. That is `fullyParallel: true` doing its job: it works at test level, not file level.
+- **One lane, 13.1s.** Four tests queued nose to tail. This is what `--workers=1` gives you, and
+  what `test.describe.serial` forces on a single file whatever the CLI says.
 
 ---
 
