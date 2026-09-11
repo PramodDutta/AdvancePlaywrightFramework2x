@@ -1,0 +1,18 @@
+{
+    "$schema": "http://json-schema.org/draft-07/schema#",
+    "title": "RcaVerdict",
+    "type": "object",
+    "required": ["severity", "priority", "rootCause", "fixes"],
+    "additionalProperties": false,
+    "properties": {
+        "severity": { "enum": ["critical", "high", "medium", "low"] },
+        "priority": { "enum": ["P0", "P1", "P2", "P3"] },
+        "rootCause": { "type": "string", "minLength": 20, "maxLength": 600 },
+        "fixes": {
+            "type": "array",
+            "minItems": 1,
+            "maxItems": 4,
+            "items": { "type": "string", "minLength": 10, "maxLength": 240 }
+        }
+    }
+}
