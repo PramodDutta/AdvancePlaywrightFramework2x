@@ -635,6 +635,200 @@ const pinned = buildBooking();
 
 A Postman collection covering the same endpoints, including cases not yet automated, is committed at [`docs/postman_api_collection/`](docs/postman_api_collection/) for manual exploration.
 
+## AI Agent Layer
+
+**Concept:** `src/ai/` is a provider-agnostic LLM layer where an agent is a **prompt plus a JSON Schema**, not a new file of HTTP code. One `LLMClient` handles transport for five providers; one `createAgent()` turns a prompt and a schema into a typed, validated, callable agent.
+
+**Why:** Without a factory, every new AI feature re-implements auth, retries, timeouts, JSON extraction and error handling, and each copy drifts. Here the fifth agent cost a prompt and a schema file.
+
+**Q&A - why use this?**
+
+- **Q: When do I reach for it?** A: Any time a test or the reporter needs a judgement a rule cannot make: "is this data realistic", "why did this fail", "what does this locator mean now".
+- **Q: What does it replace?** A: Per-feature SDK wiring, and hand-parsed model responses that are trusted without being checked.
+- **Q: What's the gotcha?** A: **A test must never pass or fail on model output.** Assert on schema validity, HTTP status, or a verified locator. A test whose result rides on a sampled token is not a test.
+
+### Architecture
+
+```mermaid
+flowchart TD
+    subgraph CFG["Configuration"]
+        ENV[".env<br/>AI_PROVIDER, AI_MODEL<br/>DEEPSEEK_API_KEY"]
+        PROV["config/providers.ts<br/>5 providers, 2 dialects"]
+        ENV --> PROV
+    end
+
+    subgraph CORE["Core"]
+        CLIENT["LLMClient.ts<br/>fetch, timeout, token caps"]
+        FACTORY["agentFactory.ts<br/>createAgent&#40;prompt + schema&#41;"]
+        PROV --> CLIENT
+        CLIENT --> FACTORY
+        SV["@utils/SchemaValidator<br/>Ajv"]
+        SV --> FACTORY
+    end
+
+    subgraph AGENTS["Agents: prompt + schema only"]
+        A1["dataGenAgent"]
+        A2["rcaAgent"]
+        A3["flakyAnalyzer"]
+        A4["selfHealAgent"]
+    end
+    FACTORY --> A1 & A2 & A3 & A4
+
+    subgraph OUT["Report tabs"]
+        T1["AI Data"]
+        T2["AI Verdict"]
+        T3["Flaky"]
+        T4["Self-Heal"]
+    end
+    A1 -->|"attach&#40;'ai-data'&#41;"| T1
+    A2 -->|"reporter calls analyzeFailure&#40;&#41;"| T2
+    A3 -->|"reporter calls analyzeFlaky&#40;&#41;"| T3
+    A4 -->|"attach&#40;'self-heal'&#41;"| T4
+```
+
+Two ways an agent reaches the report, and the first is preferred:
+
+1. **Attachment.** The spec emits `testInfo.attach('ai-data' | 'self-heal', ...)` and the reporter picks it up. No reporter change needed.
+2. **Reporter call.** `analyzeFailure()` and `analyzeFlaky()` are invoked by the reporter itself, because a failure verdict and a build-to-build diff are not a single test's business.
+
+### What one request actually does
+
+```mermaid
+sequenceDiagram
+    participant S as spec
+    participant F as createAgent
+    participant C as LLMClient
+    participant P as provider
+    participant V as SchemaValidator
+
+    S->>F: run(input)
+    alt no API key
+        F-->>S: { available: false, reason }
+        Note over S: test skips or degrades. Never throws.
+    else key present
+        F->>C: complete(system, prompt)
+        C->>P: POST /chat/completions
+        P-->>C: text
+        C-->>F: text + latency + tokens
+        F->>V: validate(schema, extractJson(text))
+        alt valid
+            V-->>F: ok
+            F-->>S: { available: true, data }
+        else invalid
+            V-->>F: errors
+            F->>C: retry once, errors appended to the prompt
+            C-->>F: corrected text
+            F-->>S: valid data, or { available: false }
+        end
+    end
+```
+
+The retry is not decoration. On a real run DeepSeek returned `additionalneeds` longer than the schema's 60-character cap; the factory fed the exact validation error back and the second attempt was clean. The same guard has since fired on the flaky summary and the RCA fixes list.
+
+### The five providers
+
+`LLMClient` speaks two dialects, not five. DeepSeek, OpenRouter, Groq and OpenAI share the OpenAI `/chat/completions` shape; Anthropic uses `/v1/messages`. Selection is env-driven, never import-driven.
+
+| Provider | Dialect | Default model | Key |
+|:---------|:--------|:--------------|:----|
+| `deepseek` (default) | openai | `deepseek-chat` | `DEEPSEEK_API_KEY` |
+| `openrouter` | openai | `deepseek/deepseek-chat` | `OPENROUTER_API_KEY` |
+| `groq` | openai | `llama-3.3-70b-versatile` | `GROQ_API_KEY` |
+| `openai` | openai | `gpt-4o-mini` | `OPENAI_API_KEY` |
+| `anthropic` | anthropic | `claude-sonnet-5` | `ANTHROPIC_API_KEY` |
+
+Only the DeepSeek path has been exercised against a live endpoint, because that is the only key on hand. The rest are implemented and typed but unproven.
+
+### The four agents
+
+| Agent | Trigger | Output | Lands in |
+|:------|:--------|:-------|:---------|
+| **Data generator** | A spec asks for payloads | Bookings with a `scenario` label each | AI Data tab |
+| **RCA** | Reporter, per failed test | Severity, priority, root cause, fixes | AI Verdict tab |
+| **Flaky** | Reporter, when statuses flipped | Prose summary over a deterministic diff | Flaky tab |
+| **Self-heal** | A locator matched nothing | Candidate selectors, each verified live | Self-Heal tab |
+
+Two choices worth knowing. **Triage is not a fifth agent**: `RcaVerdict` already carried `severity` and `priority`, so one call is cheaper and keeps the rating consistent with the explanation that justified it. And the **flaky diff is deterministic and runs with no key**; only its summary is AI, and the model is asked only when something actually flipped.
+
+### Self-healing: suggest and verify, never rewrite
+
+```mermaid
+flowchart LR
+    F["locator matched<br/>0 elements"] --> D["domDigest&#40;page&#41;<br/>interactive elements only"]
+    D --> A["selfHealAgent<br/>2 to 4 candidates"]
+    A --> V{"re-run each<br/>against the live page"}
+    V -->|"exactly 1 match<br/>AND editable"| OK["verified"]
+    V -->|"0, ambiguous,<br/>or not actionable"| NO["rejected"]
+    OK --> R["Self-Heal tab"]
+    NO --> R
+```
+
+It never rewrites a spec. A selector a model invented and nobody checked is **worse** than the failure it replaces, because it turns a test green while asserting on the wrong element.
+
+The `AND editable` branch was added after a real miss: the first version checked only "resolves to one element", reported four verified candidates, and the fill still failed with `Element is not an <input>`. A heading matches uniquely too. Verification now takes a `requires` option and rejects anything that cannot take the intended action.
+
+Verification runs **inside the test**, not the reporter, because the reporter starts after the browser has closed and taken the DOM with it.
+
+```ts
+try {
+    await page.locator('[data-test="user-name"]').fill('standard_user', { timeout: 5_000 });
+} catch (error) {
+    if (!isLocatorFailure(error)) throw error;
+
+    const report = await healLocator(page, '[data-test="user-name"]',
+        'the username input', { requires: 'editable' });
+
+    await testInfo.attach('self-heal', {
+        body: JSON.stringify(report, null, 2), contentType: 'application/json',
+    });
+    expect(report.verified.length).toBeGreaterThan(0);
+}
+```
+
+Against the real login page it ranked the correct answer first, `[data-test="username"]`, reasoning that the dead selector's `user-name` is the element's **id** rather than its `data-test`.
+
+### Running the demos
+
+The demos contain deliberate failures, so they are gated behind `AI_DEMO`. Without it the suite is **32 passed, 13 skipped**; with no key at all, 31 passed. Both exit 0.
+
+```bash
+# data generator, the only demo that is green by design
+npx playwright test --project=ai CustomDataGen
+
+# flakiness: run 1 is all green, run 2 turns exactly 3 tests red
+rm -f reports/ai-demo-state.json
+AI_DEMO=1 npx playwright test --project=ai FlakyDemo
+AI_DEMO=1 npx playwright test --project=ai FlakyDemo
+
+# a real failure for the RCA agent, and a dead locator for self-healing
+AI_DEMO=1 npx playwright test --project=ai RcaDemo
+AI_DEMO=1 npx playwright test --project=ai SelfHealDemo
+```
+
+Flakiness is deterministic on purpose: real flakiness cannot be demonstrated on demand, so `demoState.ts` counts runs per test and the three flaky tests fail on even-numbered runs.
+
+### Adding a fifth agent
+
+No transport code. A schema, a prompt, and a call:
+
+```ts
+import { createAgent } from '../agentFactory';
+import schema from '@testdata/schemas/my-agent.schema.json';
+
+export const myAgent = createAgent<MyInput, MyOutput>({
+    name: 'my-agent',
+    system: 'You are ... You reply with JSON only.',
+    schema: schema as object,
+    temperature: 0,
+    buildPrompt: (input) => `...`,
+});
+
+const result = await myAgent.run(input);
+if (result.available) use(result.data);   // schema-valid, or available is false
+```
+
+Two guarantees callers lean on: `data` is schema-valid or `available` is false, with no third state; and a missing key returns an unavailable result rather than throwing, so a suite runs unchanged without one.
+
 ## Project Structure
 
 ```
@@ -656,9 +850,11 @@ A Postman collection covering the same endpoints, including cases not yet automa
 │   └── *.md               # Implementation notes (reporter wiring, dotenv, testDir scoping)
 ├── rules/                 # Project/test rules and conventions
 ├── src/
-│   ├── ai/
-│   │   ├── agents/        # RCA and Flaky AI analysis agents
-│   │   └── config/        # LLM provider configuration
+│   ├── ai/                # LLM agent layer (see AI Agent Layer above)
+│   │   ├── LLMClient.ts   # Transport: 5 providers, 2 dialects
+│   │   ├── agentFactory.ts # createAgent(prompt + schema) -> typed agent
+│   │   ├── agents/        # dataGen, rca, flakyAnalyzer, selfHeal
+│   │   └── config/        # providers.ts: env-driven provider registry
 │   ├── api/
 │   │   └── BookingApi.ts  # Booking service object; caches and renews its token
 │   ├── config/
@@ -677,8 +873,12 @@ A Postman collection covering the same endpoints, including cases not yet automa
 │   │   ├── CheckoutCompletePage.ts
 │   │   └── ItemDetailPage.ts
 │   ├── testdata/
-│   │   ├── schemas/
-│   │   │   └── create-booking.schema.json # Draft-07, strict, additionalneeds optional
+│   │   ├── schemas/       # One schema per agent output, plus the API contract
+│   │   │   ├── create-booking.schema.json # Draft-07, strict
+│   │   │   ├── ai-booking-payload.schema.json
+│   │   │   ├── ai-rca-verdict.schema.json
+│   │   │   ├── ai-flaky-summary.schema.json
+│   │   │   └── ai-heal-candidates.schema.json
 │   │   ├── booking.data.ts    # buildBooking + buildBookingFromGenerator
 │   │   └── logintestdata.json # Valid and negative login accounts
 │   ├── tests/
@@ -691,6 +891,12 @@ A Postman collection covering the same endpoints, including cases not yet automa
 │   │   │   │   └── booking-negative.spec.ts  # 404 / 500 / 403 / bad creds
 │   │   │   ├── 04_jsonpath_plus/            # JSONPath queries + cheatsheet
 │   │   │   └── 05_ajv_json_schema/          # Runtime contract checks via Ajv
+│   │   ├── aiTest/        # `ai` project. Demos gated behind AI_DEMO=1
+│   │   │   ├── CustomDataGen.spec.ts   # AI-generated booking payloads
+│   │   │   ├── FlakyDemo.spec.ts       # 10 tests, 3 deterministically flaky
+│   │   │   ├── RcaDemo.spec.ts         # A real failure for the RCA agent
+│   │   │   ├── SelfHealDemo.spec.ts    # A dead locator to heal
+│   │   │   └── demoState.ts            # Run counter making flakiness repeatable
 │   │   ├── e2e/
 │   │   │   ├── e2e-checkout.spec.ts              # Full checkout via visualStep
 │   │   │   ├── e2e-checkout-env.spec.ts          # Same flow, every input from .env
@@ -702,6 +908,7 @@ A Postman collection covering the same endpoints, including cases not yet automa
 │       ├── DataGenerator.ts     # Faker-based test data (checkoutCustomer, etc.)
 │       ├── KBlogger.md          # Supported logger levels and examples
 │       ├── SchemaValidator.ts   # Ajv runtime response validation
+│       ├── selfHeal.ts          # Locator repair: suggest, verify, never rewrite
 │       ├── ApiHelper.ts         # Generic GET/POST/PUT/PATCH/DELETE wrapper
 │       ├── UtilElementLocator.ts # Logged locator wrapper (Flex type)
 │       ├── visualStep.ts        # Optional per-step screenshot attachments
@@ -770,6 +977,9 @@ The base URL is resolved in `playwright.config.ts` based on the `TTA_ENV` enviro
 | `CHECKOUT_ITEM_ID` | `e2e-checkout-env.spec.ts` | Yes for that spec |
 | `CHECKOUT_FIRST_NAME` / `CHECKOUT_LAST_NAME` / `CHECKOUT_POSTAL_CODE` | `DataGenerator.checkoutCustomerFromEnv()` | No, Faker fills any that are unset |
 | `API_BASE_URL` | `api` project in `playwright.config.ts`, and the specs in `src/tests/apisTests/` | No, defaults to `https://restful-booker.herokuapp.com` |
+| `DEEPSEEK_API_KEY` (or `OPENROUTER_` / `GROQ_` / `OPENAI_` / `ANTHROPIC_`) | `@ai/config/providers` | No. Without it every agent returns "unavailable" and the suite still passes |
+| `AI_PROVIDER` / `AI_MODEL` / `AI_BASE_URL` | `@ai/config/providers` | No, defaults to `deepseek` / `deepseek-chat` |
+| `AI_DEMO` | `FlakyDemo`, `RcaDemo`, `SelfHealDemo` | No. Unset, the demos skip so deliberate failures never turn the suite red |
 | `LOG_LEVEL` | `@utils/logger` | No, defaults to `info` |
 | `ATTACH_SCREENSHOTS` | `playwright.config.ts`, `@utils/visualStep` | No, defaults to `false` |
 | `TEST_ENV` / `TEST_AUTHOR` | `CustomReporter` header | No |
@@ -863,7 +1073,7 @@ npx playwright show-report
 
 Defined in `playwright.config.ts`:
 
-- Two projects: `chromium` (`testDir: src/tests`, `testIgnore: **/apisTests/**`) and `api` (`testDir: src/tests/apisTests`)
+- Three projects: `chromium` (`testDir: src/tests`, ignoring `apisTests` and `aiTest`), `api` (`testDir: src/tests/apisTests`) and `ai` (`testDir: src/tests/aiTest`, 180s timeout for model round trips)
 - Spec files must be named `*.spec.ts`; an underscore before `spec` is never collected
 - Timeout: 60s per test, 10s per assertion
 - Fully parallel execution

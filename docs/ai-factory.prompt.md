@@ -156,3 +156,60 @@ it replaces, because it turns a test green while it asserts on the wrong element
 4. After every agent: `npx tsc --noEmit` clean, and the full suite green **both** with and without
    an API key. Report both.
 5. Say plainly what you verified against a live model and what you only wired up.
+
+---
+
+# Appendix: how this was actually built
+
+Written after the fact. The prompt above was the plan; this is what the plan met.
+
+## The prompt's own history
+
+The original request was dictated in one paragraph that mixed five deliverables, a provider list and
+a working agreement. Rewriting it into the brief above changed three things:
+
+1. **Grounding beat description.** Reading `CustomReporter.ts` first turned out to matter more than
+   any rewording. It already imported all three `src/ai` modules, already gated on `hasApiKey()`,
+   and already rendered an **AI Data** tab from attachments and an **AI Verdict** tab from
+   `RcaVerdict`. So two of the five "agents to build" were partly built: the flaky diff already
+   worked, and triage was two fields that already rendered.
+2. **Each agent got a testable definition of done**, so "is it finished" stopped being a matter of
+   opinion.
+3. **Two constraints were added that the original could not have known it needed**: no test may pass
+   or fail on model output, and the suite must stay green with no key.
+
+## Order of construction, and what each step taught
+
+| Step | What shipped | What it taught |
+|:-----|:-------------|:---------------|
+| 1 | `providers.ts`, `LLMClient`, `agentFactory`, data generator | Five providers is two dialects. The seam prediction held: the generator reached the report with **zero** reporter changes. |
+| 2 | Ponytail pass over `src/ai` | The problem was not bloat but **exported surface with no importer**: 8 of 17 exports had no external caller, and 4 symbols were genuinely dead. |
+| 3 | RCA and flaky agents, demo specs | Deliberate failures need gating, and flakiness has to be **deterministic** to be demonstrable. |
+| 4 | Self-healing locators | A unique match is not a usable one. |
+
+## Three things that only showed up by running it
+
+**The schema retry is load-bearing.** DeepSeek returned an `additionalneeds` string longer than the
+schema's 60-character cap. The factory fed the exact validation error back and the retry was clean.
+The same guard has since fired on the flaky summary's length cap and the RCA fixes list. Without it
+a malformed payload would have reached the API and surfaced as a confusing 500.
+
+**"Resolves to one element" is not verification.** The first self-healing version reported four
+verified candidates and the fill still failed with `Element is not an <input>`. A heading matches
+uniquely too. Verification now takes a `requires` option and rejects a candidate that cannot take
+the intended action, rather than ranking it lower.
+
+**Project scoping bites every time a directory is added.** `src/tests/aiTest/` was first invisible
+(`chromium` ignored it, `ai` had no browser), then pointed at the wrong host (`ai`'s `baseURL` is
+the API). Both were the same lesson the API levels taught earlier: a new test directory needs its
+project decided at the same moment it is created.
+
+## What was deliberately not built
+
+- **Auto-rewriting specs from healed locators.** Suggest and verify only. A selector a model invented
+  and nobody checked turns a test green while asserting on the wrong element.
+- **A separate triage agent.** `RcaVerdict` already carried `severity` and `priority`. One call is
+  cheaper and keeps the rating consistent with the explanation that justified it.
+- **Rewriting the flaky diff.** It already worked deterministically and needed only its summary.
+- **Verifying the four non-DeepSeek providers.** They are implemented and typed, but only the
+  DeepSeek path has met a live endpoint, and the docs say so rather than implying five-way coverage.
