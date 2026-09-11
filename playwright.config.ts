@@ -79,10 +79,15 @@ export default defineConfig({
     {
       name: 'ai',
       testDir: './src/tests/aiTest',
-      // LLM calls plus HTTP. No browser. Longer timeout: a model round trip
-      // costs seconds, and two of them plus retries can exceed the 60s default.
+      // Longer timeout: a model round trip costs seconds, and two of them plus
+      // a retry can exceed the 60s default.
       timeout: 180_000,
       use: {
+        // Browser config is declared but the browser is lazy: Playwright only
+        // launches one for a test that actually requests `page`. The API and
+        // data-gen specs here use `request` only and start no browser.
+        ...devices['Desktop Chrome'],
+        viewport: { width: 1920, height: 1080 },
         baseURL: process.env.API_BASE_URL || 'https://restful-booker.herokuapp.com'
       }
     }

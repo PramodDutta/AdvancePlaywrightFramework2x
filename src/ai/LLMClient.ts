@@ -94,7 +94,11 @@ export class LLMClient {
         }
     }
 
-    private buildRequest(req: CompletionRequest) {
+    private buildRequest(req: CompletionRequest): {
+        url: string;
+        headers: Record<string, string>;
+        body: Record<string, unknown>;
+    } {
         const { provider } = this;
         const maxTokens = req.maxTokens ?? 1024;
         const temperature = req.temperature ?? 0;

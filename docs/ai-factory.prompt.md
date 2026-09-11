@@ -139,9 +139,13 @@ transport code.
 
 ## Non-goals
 
-Do not build a prompt-management UI, a vector store, a cost dashboard, or a self-healing locator
-feature. Do not auto-file bugs to a real tracker. Do not touch `src/tests/e2e/` or the API levels 01
-to 05.
+Do not build a prompt-management UI, a vector store, or a cost dashboard. Do not auto-file bugs to
+a real tracker. Do not touch `src/tests/e2e/` or the API levels 01 to 05.
+
+Self-healing locators were originally listed here as a non-goal and were later built anyway, at the
+user's direction. The constraint that survived is the one that mattered: it **suggests and verifies,
+it never rewrites a spec**. A selector a model invented and nobody checked is worse than the failure
+it replaces, because it turns a test green while it asserts on the wrong element.
 
 ## Working agreement
 
