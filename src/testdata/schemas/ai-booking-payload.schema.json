@@ -1,0 +1,36 @@
+{
+    "$schema": "http://json-schema.org/draft-07/schema#",
+    "title": "AiGeneratedBookingPayloads",
+    "type": "object",
+    "required": ["bookings"],
+    "additionalProperties": false,
+    "properties": {
+        "bookings": {
+            "type": "array",
+            "minItems": 1,
+            "maxItems": 10,
+            "items": {
+                "type": "object",
+                "required": ["firstname", "lastname", "totalprice", "depositpaid", "bookingdates", "scenario"],
+                "additionalProperties": false,
+                "properties": {
+                    "firstname": { "type": "string", "minLength": 1, "maxLength": 40 },
+                    "lastname": { "type": "string", "minLength": 1, "maxLength": 40 },
+                    "totalprice": { "type": "integer", "minimum": 0, "maximum": 100000 },
+                    "depositpaid": { "type": "boolean" },
+                    "bookingdates": {
+                        "type": "object",
+                        "required": ["checkin", "checkout"],
+                        "additionalProperties": false,
+                        "properties": {
+                            "checkin": { "type": "string", "format": "date" },
+                            "checkout": { "type": "string", "format": "date" }
+                        }
+                    },
+                    "additionalneeds": { "type": "string", "maxLength": 60 },
+                    "scenario": { "type": "string", "minLength": 3, "maxLength": 80 }
+                }
+            }
+        }
+    }
+}
