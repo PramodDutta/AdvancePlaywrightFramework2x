@@ -242,6 +242,8 @@ npx playwright test --project=chromium   # UI only, headed Chrome
 npx playwright test --project=api --list # what will be collected
 ```
 
+![API testing: spec to BookingApi to the live API to Ajv schema validation](docs/assets/api-testing.svg)
+
 The suite is a deliberate four-level progression. Each level solves a problem the previous one exposed:
 
 | Level | Folder | Teaches | Still hard |
@@ -647,6 +649,13 @@ A Postman collection covering the same endpoints, including cases not yet automa
 - **Q: What does it replace?** A: Per-feature SDK wiring, and hand-parsed model responses that are trusted without being checked.
 - **Q: What's the gotcha?** A: **A test must never pass or fail on model output.** Assert on schema validity, HTTP status, or a verified locator. A test whose result rides on a sampled token is not a test.
 
+### The idea in one picture
+
+![Agent factory: a prompt and a JSON schema go in, a typed validated agent comes out](docs/assets/agent-factory.svg)
+
+An agent is a **prompt plus a schema**. The factory owns the only HTTP code in the layer, so the
+fifth agent costs a schema file and a prompt, not another transport.
+
 ### Architecture
 
 ```mermaid
@@ -807,6 +816,27 @@ AI_DEMO=1 npx playwright test --project=ai SelfHealDemo
 
 Flakiness is deterministic on purpose: real flakiness cannot be demonstrated on demand, so `demoState.ts` counts runs per test and the three flaky tests fail on even-numbered runs.
 
+### What it looks like in the report
+
+The **Flaky** tab, after two runs of `FlakyDemo`. Counts, the tests that flipped, and the model's
+read of what they have in common:
+
+![Flaky tab showing 3 flaky tests and an AI summary attributing them to timing rather than a product regression](docs/assets/report-flaky.png)
+
+The **AI Verdict** tab, one card per failed test, with severity and priority as badges:
+
+![AI Verdict tab showing severity, priority, root cause and fix list for a failed test](docs/assets/report-ai-verdict.png)
+
+The **AI Data** tab, holding the payloads the generator produced and the API accepted. Each row
+carries the `scenario` it was written to exercise:
+
+![AI Data tab showing generated booking payloads with provider, latency and a scenario label per row](docs/assets/report-ai-data.png)
+
+The **Self-Heal** tab, listing candidate locators that were re-run against the live page. Verified
+first, rejected below, and nothing rewritten:
+
+![Self-Heal tab showing verified replacement locators for a dead selector](docs/assets/report-self-heal.png)
+
 ### Adding a fifth agent
 
 No transport code. A schema, a prompt, and a call:
@@ -842,6 +872,7 @@ Two guarantees callers lean on: `data` is schema-valid or `available` is false, 
 │   └── workflows/         # CI pipeline (GitHub Actions)
 ├── .env.example           # Committed template; CI copies it to .env
 ├── docs/
+│   ├── assets/                  # Diagrams and report screenshots used by this README
 │   ├── Playwright-Worker.md     # Parallel workers: measured timings, RAM per worker
 │   ├── ai-factory.prompt.md     # Brief for adding the LLM agent layer
 │   └── postman_api_collection/  # Restful Booker collection, incl. PATCH/DELETE
