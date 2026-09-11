@@ -649,6 +649,7 @@ A Postman collection covering the same endpoints, including cases not yet automa
 ├── .env.example           # Committed template; CI copies it to .env
 ├── docs/
 │   ├── Playwright-Worker.md     # Parallel workers: measured timings, RAM per worker
+│   ├── ai-factory.prompt.md     # Brief for adding the LLM agent layer
 │   └── postman_api_collection/  # Restful Booker collection, incl. PATCH/DELETE
 ├── learnings/
 │   ├── NewFeature.md      # How the .env feature was built, step by step
