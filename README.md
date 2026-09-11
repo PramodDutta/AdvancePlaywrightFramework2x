@@ -853,7 +853,11 @@ Two guarantees callers lean on: `data` is schema-valid or `available` is false, 
 │   ├── ai/                # LLM agent layer (see AI Agent Layer above)
 │   │   ├── LLMClient.ts   # Transport: 5 providers, 2 dialects
 │   │   ├── agentFactory.ts # createAgent(prompt + schema) -> typed agent
-│   │   ├── agents/        # dataGen, rca, flakyAnalyzer, selfHeal
+│   │   ├── agents/
+│   │   │   ├── dataGenAgent.ts    # Booking payloads with a `scenario` label
+│   │   │   ├── rcaAgent.ts        # Root cause + severity + priority
+│   │   │   ├── flakyAnalyzer.ts   # Deterministic diff + optional LLM summary
+│   │   │   └── selfHealAgent.ts   # Candidate locators for a dead selector
 │   │   └── config/        # providers.ts: env-driven provider registry
 │   ├── api/
 │   │   └── BookingApi.ts  # Booking service object; caches and renews its token
@@ -1109,6 +1113,11 @@ mv .env.bak .env
 
 When real credentials replace the demo values, swap the seeding step for an `env:` block backed by
 GitHub Secrets. `STANDARD_USER` and `TTA_SECRET` are the keys `@config/credentials` reads.
+
+CI never sets an AI key, and that is deliberate rather than an oversight. Every agent returns an
+"unavailable" result without one, the AI report tabs render empty, and `AI_DEMO` stays unset so the
+demo specs that fail on purpose are skipped. Adding a key to CI would spend money per build and make
+the result depend on a third-party model being up. Run the agents locally instead.
 
 A plain `npx playwright test` now runs both projects, so CI reaches two live third-party hosts
 (`restful-booker.herokuapp.com` and `gorest.in`). Neither is under this project's control, so an
