@@ -21,7 +21,7 @@ import { createLogger } from '@utils/logger';
 import { SchemaValidator } from '@utils/SchemaValidator';
 import { LLMClient, LLMError } from './LLMClient';
 
-export interface AgentSpec<TInput> {
+interface AgentSpec<TInput> {
     name: string;
     system: string;
     /** JSON Schema the model output must satisfy. */
@@ -37,7 +37,6 @@ export type AgentResult<TOutput> =
     | { available: false; reason: string };
 
 export interface Agent<TInput, TOutput> {
-    name: string;
     run(input: TInput): Promise<AgentResult<TOutput>>;
 }
 
@@ -61,8 +60,6 @@ export function createAgent<TInput, TOutput>(
     const log = createLogger(`agent:${spec.name}`);
 
     return {
-        name: spec.name,
-
         async run(input: TInput): Promise<AgentResult<TOutput>> {
             if (!client.isAvailable) {
                 // The normal path in CI. Not an error.

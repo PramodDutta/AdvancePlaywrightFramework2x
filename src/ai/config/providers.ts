@@ -14,10 +14,10 @@
 
 import { envOr } from '@config/env';
 
-export type ProviderName = 'deepseek' | 'openrouter' | 'groq' | 'openai' | 'anthropic';
-export type Dialect = 'openai' | 'anthropic';
+type ProviderName = 'deepseek' | 'openrouter' | 'groq' | 'openai' | 'anthropic';
+type Dialect = 'openai' | 'anthropic';
 
-export interface ProviderSpec {
+interface ProviderSpec {
     name: ProviderName;
     dialect: Dialect;
     baseUrl: string;
@@ -78,10 +78,4 @@ export function resolveProvider(): ResolvedProvider {
  */
 export function hasApiKey(): boolean {
     return resolveProvider().apiKey !== undefined;
-}
-
-/** Provider and model for logs. Never includes the key. */
-export function describeProvider(): string {
-    const p = resolveProvider();
-    return `${p.name}/${p.model}${p.apiKey ? '' : ' (no key)'}`;
 }

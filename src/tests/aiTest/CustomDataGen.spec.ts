@@ -1,6 +1,6 @@
 import { test, expect } from '@fixtures/booker.fixture';
 import { dataGenAgent, toApiPayload, type GeneratedBooking } from '../../ai/agents/dataGenAgent';
-import { describeProvider, hasApiKey } from '../../ai/config/providers';
+import { hasApiKey } from '../../ai/config/providers';
 import bookingSchema from '@testdata/schemas/ai-booking-payload.schema.json';
 import { SchemaValidator } from '@utils/SchemaValidator';
 import { createLogger } from '@utils/logger';
@@ -20,8 +20,6 @@ test.describe('@ai @P1 Level AI-01 - Custom data generator', () => {
     test.skip(!hasApiKey(), 'No LLM key configured: set DEEPSEEK_API_KEY in .env');
 
     test('generates booking payloads the API accepts', async ({ bookingApi }, testInfo) => {
-        log.info(`Requesting 3 bookings from ${describeProvider()}`);
-
         const result = await dataGenAgent.run({
             count: 3,
             focus: 'edge cases around price and stay length',

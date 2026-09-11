@@ -10,7 +10,7 @@
  * payload is sent to the API, which rejects unknown fields.
  */
 
-import { createAgent, type AgentResult } from '../agentFactory';
+import { createAgent } from '../agentFactory';
 import type { Booking } from '../../api/BookingApi';
 import schema from '@testdata/schemas/ai-booking-payload.schema.json';
 
@@ -19,21 +19,19 @@ export interface GeneratedBooking extends Booking {
     scenario: string;
 }
 
-export interface GeneratedBookings {
+interface GeneratedBookings {
     bookings: GeneratedBooking[];
 }
 
-export interface DataGenInput {
+interface DataGenInput {
     count: number;
     /** Free-text steer, e.g. "edge cases around price and stay length". */
     focus?: string;
 }
 
-const SYSTEM = [
-    'You generate test data for an API test suite.',
-    'You reply with JSON only. No prose, no markdown fences, no explanation.',
-    'Every value must be realistic enough to pass a strict JSON Schema.',
-].join(' ');
+const SYSTEM =
+    'You generate test data for an API test suite. You reply with JSON only: no prose, ' +
+    'no markdown fences, no explanation. Every value must pass a strict JSON Schema.';
 
 export const dataGenAgent = createAgent<DataGenInput, GeneratedBookings>({
     name: 'data-generator',
@@ -64,9 +62,6 @@ ${focus ? `- Focus on: ${focus}` : ''}
 
 /** Drop report-only fields so the payload matches what the API accepts. */
 export function toApiPayload(generated: GeneratedBooking): Booking {
-    const { scenario, ...payload } = generated;
-    void scenario;
+    const { scenario: _scenario, ...payload } = generated;
     return payload;
 }
-
-export type DataGenResult = AgentResult<GeneratedBookings>;
