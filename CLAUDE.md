@@ -126,6 +126,13 @@ nothing, and `exercises/` is the runnable half (`npm run exercises`). Four lesso
 against the real engine; the other eight check the repo artifact. A clean clone reports 8 passing,
 4 to do, 0 failing. Do not "fix" the four to-dos: they are the exercises.
 
+The `quality-gate` skill carries all of this as markdown and routes by task:
+`references/stages.md` (the five stages), `references/rules.md` (all 46 rules,
+generated from the packs), `references/architecture.md` (engine internals),
+`references/calibration.md` (tuning a noisy rule), `references/authoring.md`
+(the rule shape), and `references/curriculum.md` plus `references/lessons/`
+(the twelve lessons). Load the one the task needs rather than all of them.
+
 Adding a rule: `.claude/skills/quality-rule-author/SKILL.md`. Every new rule needs an expectation in
 `quality/selftest.mjs` and code that trips it in the slop fixture. The clean fixture must stay clean.
 

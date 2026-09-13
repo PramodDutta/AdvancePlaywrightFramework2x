@@ -1345,10 +1345,25 @@ suggestions and chat, which do not load skills the same way.
 │   ├── references/hand-drawn-svg.md     # rough-box / arrow / sticky recipes
 │   └── scripts/verify-explainer.js      # renders and fails on real defects
 ├── pw-*/SKILL.md                        # 11 framework-adapted Playwright skills
-└── {quality-gate,ai-slop-review,ponytail-review,
-    over-engineering-review,framework-pattern-review,
-    quality-rule-author}/SKILL.md         # 6 quality gate skills
+├── quality-gate/
+│   ├── SKILL.md                         # entry point: run, read, fix, waive
+│   └── references/
+│       ├── stages.md                    # the five enforcement stages, in order
+│       ├── rules.md                     # all 46 rules, generated from the packs
+│       ├── architecture.md              # engine internals and the 12 detectors
+│       ├── calibration.md               # tuning a noisy rule: 174 findings to 73
+│       ├── authoring.md                 # the rule shape, and how to retire one
+│       ├── curriculum.md                # index of the twelve lessons
+│       └── lessons/01-eslint.md ... 12-shipping.md
+└── {ai-slop-review,ponytail-review,over-engineering-review,
+    framework-pattern-review,quality-rule-author}/SKILL.md
 ```
+
+The `quality-gate` skill carries the whole system as markdown: the five stages in
+order, the rule catalogue, the engine internals, the calibration method, and the
+twelve lessons. `SKILL.md` stays short and routes to the rest, so an agent loads
+only the part its task needs. It is the same content as
+`docs/quality-gates-tutorial.html` with the page furniture removed.
 
 ## Slash Commands
 
