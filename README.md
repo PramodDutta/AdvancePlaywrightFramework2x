@@ -934,7 +934,9 @@ a change cannot add to either number while the baseline is paid down file by fil
 
 [`docs/quality-gates-tutorial.html`](docs/quality-gates-tutorial.html) is a twelve-lesson study guide
 that builds this system from nothing: the masked lexer, rules as data, the four packs, waivers and
-budgets, the hooks, and the PR gate. Open it in a browser.
+budgets, the hooks, and the PR gate. Open it in a browser. Six diagrams, four of them hand-drawn in
+the whiteboard style from `.claude/skills/feature-explainer/references/hand-drawn-svg.md`, with the
+lettering left in IBM Plex so the labels stay legible.
 
 `exercises/` is the part you run. Four lessons have stubs that are checked against the real engine
 and real repository data; the other eight check the artifact the lesson adds to the repo.
