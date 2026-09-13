@@ -122,7 +122,7 @@ pre-existing. The PR gate runs on changed files only, so a change cannot add to 
 unrelated files to drive the number down.
 
 Learning the system: `docs/quality-gates-tutorial.html` is a twelve-lesson guide that builds it from
-nothing, and `exercises/` is the runnable half (`npm run exercises`). Four lessons are stubs checked
+nothing and `docs/quality-gates-tutorial-v2.html` is the seven-step teaching cut of the same material, and `exercises/` is the runnable half (`npm run exercises`). Four lessons are stubs checked
 against the real engine; the other eight check the repo artifact. A clean clone reports 8 passing,
 4 to do, 0 failing. Do not "fix" the four to-dos: they are the exercises.
 

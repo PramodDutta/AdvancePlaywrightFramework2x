@@ -1,0 +1,492 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Quality Gates in Seven Steps</title>
+<meta name="description" content="The short teaching cut: build a rule engine that catches what tsc, ESLint and a green test suite all miss. Seven steps, about thirty minutes. By The Testing Academy.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#F7F9FC; --surface:#FFFFFF; --ink:#13294B; --body:#2A3A56; --muted:#5F7090; --line:#D9E1EC;
+  --green:#1E8A5A; --green-soft:#E4F4EB; --blue:#2A66D6; --blue-soft:#E7EFFC;
+  --amber:#D98E1F; --amber-soft:#FFF5E1; --red:#D64545; --red-soft:#FBE9E9;
+  --code-bg:#13294B; --code-fg:#E6EDF7; --kw:#8DE0B9; --str:#F8C977; --com:#8FA3C4; --num:#FFB39B;
+  --radius:10px;
+}
+*{box-sizing:border-box}
+html{scroll-behavior:smooth;scroll-padding-top:76px}
+@media (prefers-reduced-motion:reduce){html{scroll-behavior:auto}}
+body{margin:0;background:var(--bg);color:var(--body);font-family:"IBM Plex Sans",system-ui,-apple-system,sans-serif;font-size:17px;line-height:1.62;-webkit-font-smoothing:antialiased}
+a{color:var(--green)}
+a:focus-visible,button:focus-visible{outline:2px solid var(--amber);outline-offset:2px}
+h1,h2,h3{color:var(--ink);line-height:1.15;margin:0 0 .4em;letter-spacing:-.015em;text-wrap:balance}
+p{margin:0 0 1rem}
+img{max-width:100%}
+code,pre{font-family:"IBM Plex Mono",ui-monospace,Menlo,monospace}
+p>code,li>code,td>code,h2>code,.idea>code{background:#EAF0F7;color:var(--ink);padding:.1em .35em;border-radius:5px;font-size:.87em}
+pre code{background:none;padding:0;font-size:inherit;color:inherit}
+strong{color:var(--ink)}
+
+.topbar{position:sticky;top:0;z-index:20;background:rgba(255,255,255,.94);backdrop-filter:blur(8px);border-bottom:1px solid var(--line)}
+.topbar-in{max-width:900px;margin:0 auto;padding:11px 22px;display:flex;align-items:center;justify-content:space-between;gap:14px}
+.brand{display:flex;align-items:center;gap:9px;font-weight:700;color:var(--ink);text-decoration:none;font-size:1rem}
+.brand i{width:11px;height:11px;border-radius:3px;background:var(--green);display:inline-block;transform:rotate(45deg)}
+.topbar a.full{color:var(--muted);text-decoration:none;font-size:.88rem;white-space:nowrap}
+.topbar a.full:hover{color:var(--green)}
+
+.hero{background:var(--ink);color:#fff;padding:52px 22px 46px}
+.hero-in{max-width:900px;margin:0 auto}
+.kicker{color:#9BD9BC;font-weight:500;margin-bottom:10px;font-size:.95rem}
+.hero h1{color:#fff;font-size:clamp(2.1rem,5.4vw,3.3rem);font-weight:700;letter-spacing:-.03em;margin-bottom:14px}
+.hero p{font-size:1.12rem;max-width:56ch;color:#D6E0F0;margin-bottom:18px}
+.meta{list-style:none;padding:0;margin:0 0 18px;display:flex;flex-wrap:wrap;gap:9px}
+.meta li{border:1px solid rgba(255,255,255,.28);border-radius:999px;padding:5px 13px;font-size:.87rem;color:#E6EDF7}
+.byline{color:#9FB2CF;font-size:.92rem;margin:0}
+.byline a{color:#C6F0DB;text-decoration:none}
+
+.rail{background:var(--surface);border-bottom:1px solid var(--line);position:sticky;top:47px;z-index:15}
+.rail-in{max-width:900px;margin:0 auto;padding:9px 22px;display:flex;gap:6px;overflow-x:auto;scrollbar-width:thin}
+.rail a{flex:none;font-size:.79rem;color:var(--muted);text-decoration:none;border:1px solid var(--line);border-radius:999px;padding:4px 9px;white-space:nowrap}
+.rail a:hover{color:var(--ink);border-color:var(--muted)}
+.rail a.active{color:var(--green);border-color:var(--green);background:var(--green-soft);font-weight:600}
+.rail b{font-family:"IBM Plex Mono",monospace;font-weight:500;opacity:.75;margin-right:4px}
+
+main{max-width:900px;margin:0 auto;padding:44px 22px 70px}
+.step{padding-bottom:40px;margin-bottom:40px;border-bottom:1px solid var(--line)}
+.step:last-of-type{border-bottom:0;margin-bottom:0}
+.step-head{display:grid;grid-template-columns:62px minmax(0,1fr);gap:16px;align-items:start;margin-bottom:18px}
+.step-n{font-family:"IBM Plex Mono",monospace;font-size:2.6rem;line-height:.9;color:var(--green);font-weight:500;padding-top:2px}
+.step h2{font-size:1.6rem;font-weight:700}
+.idea{margin:0;color:var(--body);font-size:1.08rem}
+
+.code{position:relative;margin:18px 0 8px;background:var(--code-bg);border-radius:var(--radius);overflow:hidden}
+.code figcaption{font-family:"IBM Plex Mono",monospace;font-size:.76rem;color:#9FB2CF;padding:9px 15px;border-bottom:1px solid rgba(255,255,255,.08)}
+.code pre{margin:0;padding:15px 17px;overflow-x:auto;font-size:.845rem;line-height:1.56;color:var(--code-fg)}
+.code .copy{position:absolute;top:6px;right:9px;background:rgba(255,255,255,.1);color:#E6EDF7;border:1px solid rgba(255,255,255,.2);border-radius:6px;padding:3px 10px;font:inherit;font-size:.76rem;cursor:pointer}
+.code .copy:hover{background:rgba(255,255,255,.2)}
+.hk{color:var(--kw)} .hs{color:var(--str)} .hc{color:var(--com);font-style:italic} .hn{color:var(--num)}
+.out{margin:6px 0 18px;border:1px solid var(--line);border-radius:var(--radius);background:#fff;overflow:hidden}
+.out-bar{font-size:.76rem;font-weight:600;color:var(--muted);padding:6px 13px;border-bottom:1px solid var(--line);background:var(--bg)}
+.out pre{margin:0;padding:13px 15px;font-size:.83rem;line-height:1.52;color:var(--ink);white-space:pre-wrap;overflow-x:auto}
+
+.note{border-left:4px solid var(--green);background:var(--green-soft);padding:11px 15px;border-radius:0 8px 8px 0;margin:16px 0}
+.note.warn{border-color:var(--amber);background:var(--amber-soft)}
+.note.stop{border-color:var(--red);background:var(--red-soft)}
+.note p:last-child{margin:0}
+.try{background:var(--surface);border:1px dashed #C3D0E2;border-radius:8px;padding:10px 14px;margin:18px 0 0;font-size:.95rem}
+.try b{color:var(--green);margin-right:8px;font-weight:600}
+
+.tw{overflow-x:auto;margin:16px 0}
+table{width:100%;border-collapse:collapse;font-size:.92rem}
+th,td{text-align:left;padding:9px 12px;border-bottom:1px solid var(--line);vertical-align:top}
+th{color:var(--ink);font-weight:600;background:var(--bg)}
+td.n{font-variant-numeric:tabular-nums;text-align:right}
+.rules td:first-child{font-family:"IBM Plex Mono",monospace;font-size:.85rem;color:var(--ink);white-space:nowrap}
+.sev{display:inline-block;font-family:"IBM Plex Mono",monospace;font-size:.73rem;font-weight:600;padding:2px 7px;border-radius:5px}
+.sev-e{background:var(--red-soft);color:var(--red);border:1px solid #F0C6C6}
+.sev-w{background:var(--amber-soft);color:#A9690B;border:1px solid #F1D8A3}
+
+.gates{display:grid;grid-template-columns:repeat(2,1fr);gap:12px;margin:18px 0}
+.gate{border:1px solid var(--line);background:var(--surface);border-radius:var(--radius);padding:13px 15px}
+.gate h3{font-size:1rem;margin:0 0 3px;font-family:"IBM Plex Mono",monospace}
+.gate p{margin:0;font-size:.92rem;color:var(--muted)}
+.gate.g1{border-top:3px solid var(--amber)} .gate.g2{border-top:3px solid var(--green)}
+.gate.g3{border-top:3px solid var(--blue)} .gate.g4{border-top:3px solid #7A3FC4}
+
+.sketch{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);padding:16px 14px;margin:20px 0}
+.sketch svg{width:100%;height:auto;display:block;overflow:visible}
+.sketch figcaption{font-size:.85rem;color:var(--muted);margin-top:9px;text-align:center}
+.sk-ink{stroke:var(--ink);stroke-width:2.1;fill:none;stroke-linecap:round;stroke-linejoin:round}
+.sk-ink2{stroke:var(--ink);stroke-width:1.5;fill:none;stroke-linecap:round;opacity:.5}
+.sk-blue{stroke:var(--blue);stroke-width:2.4;fill:none;stroke-linecap:round;stroke-linejoin:round}
+.sk-green{stroke:var(--green);stroke-width:2.6;fill:none;stroke-linecap:round;stroke-linejoin:round}
+.sk-amber{stroke:var(--amber);stroke-width:2.4;fill:none;stroke-linecap:round;stroke-linejoin:round}
+.sk-red{stroke:var(--red);stroke-width:2.6;fill:none;stroke-linecap:round;stroke-linejoin:round}
+.sk-fill{fill:var(--amber-soft);stroke:none}
+.sk-txt{font-family:"IBM Plex Sans",system-ui,sans-serif;fill:var(--ink)}
+.sk-mono{font-family:"IBM Plex Mono",monospace;fill:var(--ink)}
+.sk-label{font-family:"IBM Plex Sans",system-ui,sans-serif;fill:var(--muted);letter-spacing:.08em}
+
+footer{background:var(--ink);color:#C6D2E6;padding:34px 22px}
+.foot-in{max-width:900px;margin:0 auto;display:flex;flex-wrap:wrap;justify-content:space-between;gap:14px;align-items:center}
+footer a{color:#9BD9BC;text-decoration:none}
+footer .brand{color:#fff}
+footer p{margin:0;font-size:.9rem}
+
+@media (max-width:700px){
+  .gates{grid-template-columns:1fr}
+  .step-head{grid-template-columns:44px minmax(0,1fr);gap:12px}
+  .step-n{font-size:2rem}
+  .rail{position:static}
+  .hero{padding:40px 22px 36px}
+}
+</style>
+</head>
+<body>
+
+<header class="topbar">
+  <div class="topbar-in">
+    <a class="brand" href="https://thetestingacademy.com"><i></i>The Testing Academy</a>
+    <a class="full" href="quality-gates-tutorial.html">Full 12-lesson guide &rarr;</a>
+  </div>
+</header>
+
+<section class="hero">
+  <div class="hero-in">
+    <p class="kicker">Workshop edition</p>
+    <h1>Quality Gates in Seven Steps</h1>
+    <p>Your suite is green, <code style="background:rgba(255,255,255,.12);color:#E6EDF7;padding:.1em .35em;border-radius:5px">tsc</code> is clean, ESLint says nothing, and the spec asserts nothing. Here is the smallest thing that catches it.</p>
+    <ul class="meta">
+      <li>7 steps</li>
+      <li>about 30 minutes</li>
+      <li>zero dependencies</li>
+      <li>Playwright + TypeScript</li>
+    </ul>
+    <p class="byline">By Pramod Dutta, founder of <a href="https://thetestingacademy.com">The Testing Academy</a></p>
+  </div>
+</section>
+
+<nav class="rail" aria-label="Steps">
+  <div class="rail-in">
+    <a href="#s1"><b>1</b>The problem</a>
+    <a href="#s2"><b>2</b>Two tools</a>
+    <a href="#s3"><b>3</b>Read it safely</a>
+    <a href="#s4"><b>4</b>A rule is data</a>
+    <a href="#s5"><b>5</b>Teach it taste</a>
+    <a href="#s6"><b>6</b>Make it bite</a>
+    <a href="#s7"><b>7</b>Make it survive</a>
+  </div>
+</nav>
+
+<main>
+
+<section class="step" id="s1">
+<div class="step-head"><span class="step-n">1</span><div><h2>The problem</h2><p class="idea">A spec can pass everything you own and still check nothing.</p></div></div>
+<figure class="code"><figcaption>src/tests/login/login.spec.ts</figcaption><pre><code data-lang="ts">test(&#x27;should work correctly&#x27;, async ({ page }) =&gt; {
+    const loginPage = new LoginPage(page);
+    await page.locator(&#x27;#login-button&#x27;).click();
+    await loginPage.loginAs(&#x27;standard_user&#x27;, &#x27;tta_secret&#x27;);
+});</code></pre></figure>
+<p>It compiles. ESLint finds one unused parameter. The suite goes green. And it asserts nothing, so it reports green on a login page that is completely broken, as long as the button is still there to click.</p>
+<figure class="sketch">
+<svg viewBox="0 0 860 372" role="img" aria-label="A spec passes tsc, ESLint and the suite while two gates report eight findings">
+<text class="sk-label" x="34" y="30" font-size="12">WHAT THE PIPELINE SAYS</text>
+<path class="sk-ink" d="M33.7,46.4 C103,47.2 195,48.3 266.7,45.8 C264.1,79.6 265.5,113.2 264.1,142.6 C195,139.9 103,144.5 32,142.1 C33.2,113.2 30.8,79.6 33.7,46.4 Z"/>
+<text class="sk-mono" x="56" y="76" font-size="14">login.spec.ts</text>
+<text class="sk-txt" x="56" y="102" font-size="14">24 lines</text>
+<text class="sk-txt" x="56" y="126" font-size="14">0 assertions</text>
+<path class="sk-blue" d="M268,94 C309.5,80 363.2,69.1 404,64"/><path class="sk-blue" d="M392.9,70.7 L404,64 L391.6,60.2"/>
+<path class="sk-ink" d="M404.3,38.7 C494,41.8 614,38.4 701,41 C704.2,56.8 704.1,73.6 702.1,86.4 C614,84.8 494,83.7 403.3,88.9 C401.2,73.6 406.4,56.8 404.3,38.7 Z"/>
+<text class="sk-mono" x="426" y="70" font-size="13">tsc --noEmit</text>
+<text class="sk-txt" x="570" y="70" font-size="14">clean</text>
+<path class="sk-green" d="M722,56 l7,8 l14,-18"/>
+<path class="sk-blue" d="M268,94 C307.2,103.9 363.8,114.9 404,124"/><path class="sk-blue" d="M391.3,126.5 L404,124 L393.6,116.2"/>
+<path class="sk-ink" d="M400.9,97.5 C494,95.3 614,99.1 703.3,101.2 C704.4,116.8 701,133.6 701.7,145.5 C614,145.7 494,145.2 402.3,149.6 C401.7,133.6 404.1,116.8 400.9,97.5 Z"/>
+<text class="sk-mono" x="426" y="130" font-size="13">eslint</text>
+<text class="sk-txt" x="570" y="130" font-size="14">1 unused var</text>
+<path class="sk-green" d="M722,116 l7,8 l14,-18"/>
+<path class="sk-blue" d="M268,94 C307.7,124.3 357.6,164.4 404,184"/><path class="sk-blue" d="M391,184.3 L404,184 L395.1,174.5"/>
+<path class="sk-ink" d="M401.3,158.2 C494,160.4 614,158.3 702.7,162.6 C705.6,176.8 705.2,193.6 704,209.4 C614,208.6 494,206.2 401.4,208.1 C403.1,193.6 398.9,176.8 401.3,158.2 Z"/>
+<text class="sk-mono" x="426" y="190" font-size="13">playwright test</text>
+<text class="sk-txt" x="570" y="190" font-size="14">green</text>
+<path class="sk-green" d="M722,176 l7,8 l14,-18"/>
+<path class="sk-ink2" d="M34,214 C240,210 560,218 826,212" stroke-dasharray="9 11"/>
+<text class="sk-label" x="34" y="248" font-size="12">WHAT THE FOUR GATES SAY</text>
+<path class="sk-ink" d="M33.7,268.4 C88,270.8 160,268 211,264.6 C208,296.1 213.5,326.2 217,353.1 C160,350.7 88,354 31.6,351 C32.4,326.2 33.5,296.1 33.7,268.4 Z"/>
+<text class="sk-mono" x="52" y="294" font-size="12">ai-slop</text>
+<text class="sk-txt" x="52" y="332" font-size="26" font-weight="700">4</text>
+<text class="sk-txt" x="80" y="332" font-size="13">findings</text>
+<path class="sk-red" d="M180,306 l16,16 M196,306 l-16,16"/>
+<path class="sk-ink" d="M233.2,264.3 C288,265.8 360,264.8 411.9,268.6 C413.7,296.1 412.9,326.2 414.5,353.2 C360,355.4 288,352.8 234.3,351.3 C232.1,326.2 231,296.1 233.2,264.3 Z"/>
+<text class="sk-mono" x="252" y="294" font-size="12">ponytail</text>
+<text class="sk-txt" x="252" y="332" font-size="26" font-weight="700">0</text>
+<text class="sk-txt" x="280" y="332" font-size="13">findings</text>
+<path class="sk-ink" d="M434.9,263 C488,262.5 560,260 612.6,264.2 C610.8,296.1 612.6,326.2 615.5,353.1 C560,350.1 488,351.2 436.5,349.4 C437.5,326.2 435.2,296.1 434.9,263 Z"/>
+<text class="sk-mono" x="452" y="294" font-size="12">over-engineering</text>
+<text class="sk-txt" x="452" y="332" font-size="26" font-weight="700">0</text>
+<text class="sk-txt" x="480" y="332" font-size="13">findings</text>
+<path class="sk-ink" d="M631,267.3 C688,264.2 760,266.8 811.7,265.8 C810.9,296.1 814,326.2 815.1,353.9 C760,354.2 688,355.5 633.7,352 C633.3,326.2 629,296.1 631,267.3 Z"/>
+<text class="sk-mono" x="652" y="294" font-size="12">framework-patterns</text>
+<text class="sk-txt" x="652" y="332" font-size="26" font-weight="700">4</text>
+<text class="sk-txt" x="680" y="332" font-size="13">findings</text>
+<path class="sk-red" d="M780,306 l16,16 M796,306 l-16,16"/>
+</svg>
+<figcaption>Eight findings. Nothing else in the pipeline raises one of them.</figcaption>
+</figure>
+<div class="note stop"><p><strong>A reviewer objects to this once, and then gets tired.</strong> That is the gap generated code walks through, and it widens with the volume an agent can produce.</p></div>
+<p class="try"><b>Try it</b> Open your own suite and grep for <code>test(</code> bodies with no <code>expect</code>. Count them.</p>
+</section>
+<section class="step" id="s2">
+<div class="step-head"><span class="step-n">2</span><div><h2>Two tools, one line between them</h2><p class="idea">ESLint owns what has a correct answer. A rule engine owns what needs your repo.</p></div></div>
+<div class="tw"><table>
+<thead><tr><th>Tool</th><th>Owns</th><th>Cost</th></tr></thead>
+<tbody>
+<tr><td><strong>ESLint</strong></td><td>floating promises, <code>waitForTimeout</code>, <code>force: true</code>, <code>any</code></td><td>~2.2s per file</td></tr>
+<tr><td><strong>Your engine</strong></td><td>is this used twice, does this comment add anything, does this spec use the fixture</td><td>~0.14s, whole repo</td></tr>
+</tbody></table></div>
+<p>"Does this spec go through the fixture layer?" has no universal answer. It depends on a module that exists in <em>your</em> repo. A general-purpose linter cannot ship that rule.</p>
+<p>Four gates, each one question asked of every file:</p>
+<div class="gates">
+  <div class="gate g1"><h3>ai-slop</h3><p>Was this generated, skimmed, and shipped?</p></div>
+  <div class="gate g2"><h3>ponytail</h3><p>Does anything else in the run already record this?</p></div>
+  <div class="gate g3"><h3>over-engineering</h3><p>How many callers does this abstraction have?</p></div>
+  <div class="gate g4"><h3>framework-patterns</h3><p>Is this still part of this framework?</p></div>
+</div>
+<div class="note"><p><strong>One owner per rule.</strong> A hard wait is the most recognisable AI tell there is, and it does <em>not</em> go in your ai-slop pack, because <code>playwright/no-wait-for-timeout</code> already owns it. Two tools reporting the same finding teaches people to skim past both.</p></div>
+<p class="try"><b>Try it</b> Write down three things your team says in review that no linter could check. Those are your first rules.</p>
+</section>
+<section class="step" id="s3">
+<div class="step-head"><span class="step-n">3</span><div><h2>Read the source safely</h2><p class="idea">Never regex raw source. Mask the comments and strings first.</p></div></div>
+<p>The same string, three times, and only one is a finding:</p>
+<figure class="code"><figcaption>the whole problem, in three lines</figcaption><pre><code data-lang="ts">// never call page.waitForTimeout in a spec          &lt;- documentation
+log.info(&#x27;replacing page.waitForTimeout with a poll&#x27;); // &lt;- a log message
+await page.waitForTimeout(2000);                       // &lt;- the finding</code></pre></figure>
+<p>Walk the file once. Blank the comment bodies and string contents, keep every newline, so every offset still maps to its line.</p>
+<figure class="sketch">
+<svg viewBox="0 0 860 250" role="img" aria-label="Three lines containing waitForTimeout pass through lex and only the real call survives">
+<text class="sk-label" x="30" y="28" font-size="12">AS WRITTEN</text>
+<path class="sk-ink" d="M28.4,42 C132,45 268,43.5 367.8,44.1 C368.1,94.5 368.7,147 368.3,192.3 C268,192.9 132,191.4 32.7,191.3 C35.9,147 27.7,94.5 28.4,42 Z"/>
+<text class="sk-mono" x="52" y="78" font-size="12">// never call page.waitForTimeout</text>
+<text class="sk-mono" x="52" y="112" font-size="12">log.info('...waitForTimeout...')</text>
+<text class="sk-mono" x="52" y="146" font-size="12">await page.waitForTimeout(2000);</text>
+<path class="sk-blue" d="M372,118 C382,120.2 398.3,119.1 412,118"/><path class="sk-blue" d="M400.6,124.3 L412,118 L399.7,113.7"/>
+<path class="sk-ink" d="M415,92.4 C437.2,91.6 470.8,89.6 495.8,92.1 C496.7,110.2 499,128.4 497.7,147.1 C470.8,145.3 437.2,148.8 411.5,142.3 C409.6,128.4 417.7,110.2 415,92.4 Z"/>
+<text class="sk-mono" x="454" y="124" font-size="15" text-anchor="middle">lex()</text>
+<path class="sk-blue" d="M498,118 C506.6,118.4 520.9,118.1 534,118"/><path class="sk-blue" d="M522.2,123.4 L534,118 L522.1,112.8"/>
+<text class="sk-label" x="534" y="28" font-size="12">MASKED</text>
+<path class="sk-ink" d="M534.5,40.1 C621.6,42.5 738.4,43.1 826.9,44.9 C828.9,94.5 826.4,147 823.1,191.7 C738.4,194.1 621.6,189.1 533.1,190.6 C533,147 534.3,94.5 534.5,40.1 Z"/>
+<text class="sk-mono" x="556" y="78" font-size="12">//</text>
+<text class="sk-mono" x="556" y="112" font-size="12">log.info('                 ')</text>
+<text class="sk-mono" x="556" y="146" font-size="12">await page.waitForTimeout(2000);</text>
+<path class="sk-amber" d="M548,139.8 C551.5,120 761,116 832,141.2 C837,155.2 690,167 583.5,158.5 C542,150.8 544,135.4 604.8,129.9"/>
+<text class="sk-txt" x="556" y="226" font-size="14">one survives. it is the only one that is code.</text>
+<path class="sk-green" d="M516,212 l7,8 l14,-18"/>
+</svg>
+<figcaption>Same length, same line numbers, same columns.</figcaption>
+</figure>
+<figure class="code"><figcaption>quality/engine/source.mjs</figcaption><pre><code data-lang="ts">export function lex(text) {
+    const out = new Array(text.length);
+    const comments = [], strings = [];
+    let line = 1, i = 0;
+    while (i &lt; text.length) {
+        // &#x27;//&#x27; and &#x27;/*&#x27;  -&gt; record the comment, blank the body
+        // a quote        -&gt; record the string, blank the body, KEEP the quotes
+        // &#x27;/&#x27; where a value is expected -&gt; a regex literal, copy through
+        // otherwise      -&gt; copy the character
+    }
+    return { masked: out.join(&#x27;&#x27;), comments, strings };
+}</code></pre></figure>
+<div class="note warn"><p><strong>Two traps.</strong> A <code>/</code> only starts a regex literal where a value is expected: get it wrong and <code>const re = /\/\//;</code> eats the rest of the file. And masking blanks the words a narrating comment is echoing, so a rule comparing a comment to its neighbour must read the <em>raw</em> line. Knowing which copy a rule needs is most of the skill.</p></div>
+<p class="try"><b>Try it</b> Write <code>lex()</code>, run it on your biggest page object, and check that no line number moved.</p>
+</section>
+<section class="step" id="s4">
+<div class="step-head"><span class="step-n">4</span><div><h2>A rule is data, not code</h2><p class="idea">Detectors are code. Rules are data. Adding one is a four-line change.</p></div></div>
+<p>Write each rule as a function and fifty rules later nobody adds a rule. Write them as objects that name a detector, and anyone can.</p>
+<figure class="code"><figcaption>rules/ai-slop.rules.mjs</figcaption><pre><code data-lang="ts">{
+    id: &#x27;slop/test-without-assertion&#x27;,
+    title: &#x27;Test asserts nothing&#x27;,
+    severity: &#x27;error&#x27;,
+    detect: &#x27;blockMissing&#x27;,
+    specsOnly: true,
+    options: {
+        call: /\btest(?:\.only|\.fail)?\s*\(/,
+        required: /\b(?:expect|assert[A-Z]\w*|toHave\w+)\b/,
+    },
+    why: &#x27;A test with no assertion passes as long as nothing throws, so it reports green on a broken feature.&#x27;,
+    fix: &#x27;Add a web-first assertion for the outcome the test is named after.&#x27;,
+}</code></pre></figure>
+<div class="note"><p><strong><code>why</code> and <code>fix</code> are the product, not documentation.</strong> They print in your terminal, in the feedback the agent reads when its edit is blocked, and in the pull request comment. A rule whose <code>why</code> says "this is bad practice" gets waived by the first person who hits it.</p></div>
+<p>Note <code>required</code> also accepts <code>assertLoaded()</code>. If your page objects assert, a rule that only knows <code>expect</code> will fire on your best specs.</p>
+<p class="try"><b>Try it</b> Add one rule for <code>page.pause()</code> in specs. Then put <code>page.pause()</code> in a comment and confirm it is not reported.</p>
+</section>
+<section class="step" id="s5">
+<div class="step-head"><span class="step-n">5</span><div><h2>Teach it taste</h2><p class="idea">The best rules come from a judgement your team already wrote down.</p></div></div>
+<p>This framework keeps two copies of one API lifecycle test on purpose: 73 lines and 33 lines, same assertions, both green. Every cut answered one question.</p>
+<figure class="sketch">
+<svg viewBox="0 0 860 312" role="img" aria-label="A 73-line spec becomes 33 lines by removing machinery the trace already records">
+<path class="sk-ink" d="M30,62.4 C94.8,61.8 181.2,61.3 248,60.9 C245.9,93.5 248.8,125 244.9,153.2 C181.2,155.8 94.8,154.4 29.9,151.1 C30.8,125 28.9,93.5 30,62.4 Z"/>
+<text class="sk-mono" x="52" y="92" font-size="12">booking-crud.e2e</text>
+<text class="sk-txt" x="52" y="132" font-size="24" font-weight="700">73 lines</text>
+<path class="sk-blue" d="M248,106 C264.5,104.4 283.9,104.7 296,106"/><path class="sk-blue" d="M283.6,110.1 L296,106 L284.7,99.5"/>
+<path class="sk-ink" d="M295.6,32.7 C376.4,30 483.6,33.5 566.6,33.9 C568.8,99.1 567.3,164.2 561.4,221.6 C483.6,219.8 376.4,223.8 293.3,218.1 C295.7,164.2 294.5,99.1 295.6,32.7 Z"/>
+<text class="sk-txt" x="318" y="64" font-size="14" font-weight="600">the run already records</text>
+<text class="sk-txt" x="318" y="96" font-size="12">every request, with timings</text>
+<text class="sk-txt" x="318" y="122" font-size="12">every response body</text>
+<text class="sk-txt" x="318" y="148" font-size="12">step names, in the report</text>
+<text class="sk-txt" x="318" y="174" font-size="12">every duration</text>
+<path class="sk-blue" d="M566,106 C582.7,106.6 604.7,108 622,106"/><path class="sk-blue" d="M610.8,112.6 L622,106 L609.6,102.1"/>
+<path class="sk-ink" d="M621.5,60.6 C683.2,63.2 764.8,57.9 828.2,61.6 C828.6,93.5 826.7,125 826.2,152.3 C764.8,153.3 683.2,153.1 621,152.9 C618.1,125 619,93.5 621.5,60.6 Z"/>
+<text class="sk-mono" x="644" y="92" font-size="12">ponytail.spec.ts</text>
+<text class="sk-txt" x="644" y="132" font-size="24" font-weight="700">33 lines</text>
+<path class="sk-fill" d="M293.3,239.6 C376.4,242.3 483.6,239.5 562.4,239.7 C562.2,258.9 560,277.8 562.4,296.3 C483.6,298.1 376.4,293.6 296.4,295.6 C295.5,277.8 291.1,258.9 293.3,239.6 Z"/><path class="sk-ink2" d="M293.3,241.7 C376.4,239.8 483.6,238.8 567,239.5 C565,258.9 564,277.8 566.8,293.5 C483.6,293.2 376.4,291.1 296.8,296.7 C294.2,277.8 292.1,258.9 293.3,241.7 Z"/>
+<path class="sk-green" d="M318,262 l7,8 l14,-18"/>
+<text class="sk-txt" x="350" y="275" font-size="14" font-weight="600">every expect survived</text>
+<path class="sk-amber" d="M630,124.6 C632.1,101 771,97 818,126.4 C823,144.2 724,158 653.5,148.2 C624,138.8 626,119.9 667.6,113.2"/>
+</svg>
+<figcaption>Forty lines removed, not one assertion.</figcaption>
+</figure>
+<h3 style="font-size:1.12rem;margin-top:26px">The metric that was wrong</h3>
+<p>Detecting a comment that says what the code says starts here, and this is a bug:</p>
+<figure class="code"><figcaption>the naive version</figcaption><pre><code data-lang="ts">return shared / Math.min(a.size, b.size);   // &lt;- flags your best comments</code></pre></figure>
+<p>Dividing by the smaller set means a short code line whose two identifiers both appear in a long comment scores 1.0. So it reported this, the single most useful line in the file:</p>
+<figure class="code"><figcaption>a comment worth keeping</figcaption><pre><code data-lang="ts">// No token argument: BookingApi re-auths on a 403 and retries. Passing one opts out.
+const updated = await bookingApi.updateBooking(bookingId, payload);</code></pre></figure>
+<p>The question is not "do these share words". It is <strong>does the comment add anything the code does not have</strong>. That makes the comment the denominator, always.</p>
+<figure class="code"><figcaption>quality/engine/detectors.mjs</figcaption><pre><code data-lang="ts">function coverage(prose, code) {
+    let shared = 0;
+    for (const w of prose) if (code.has(w)) shared += 1;
+    return prose.size === 0 ? 0 : shared / prose.size;
+}</code></pre></figure>
+<div class="out"><div class="out-bar">the same two comments, scored</div><pre>// click the login button   over  el.click(loginButton)      1.00   reported
+// No token argument: ...    over  bookingApi.updateBooking()  0.14   left alone</pre></div>
+<div class="note warn"><p><strong>Validate a taste rule against something your team already agreed on.</strong> Here the 33-line spec reports clean and its 73-line twin reports exactly the cuts the README documents. Without a check like that, a taste rule is just your opinion with a CI job attached.</p></div>
+<p class="try"><b>Try it</b> Find the pair in your repo: the file everyone points at as good, and the one it replaced. Your rules must stay silent on the first.</p>
+</section>
+<section class="step" id="s6">
+<div class="step-head"><span class="step-n">6</span><div><h2>Make it bite</h2><p class="idea">Four chances to stop the same mistake. The earliest is the cheapest.</p></div></div>
+<div class="tw"><table>
+<thead><tr><th>When</th><th>What happens</th><th>Cost</th></tr></thead>
+<tbody>
+<tr><td>Prompt submitted</td><td>the blocking rules enter the agent's context</td><td>~40ms</td></tr>
+<tr><td>Before a write</td><td>a spec outside <code>src/tests/</code> is denied</td><td>~30ms</td></tr>
+<tr><td>After a write</td><td><code>error</code> blocks the edit, findings go back to the model</td><td>~140ms</td></tr>
+<tr><td>Before a commit</td><td>gate + ESLint on staged files</td><td>~3s</td></tr>
+<tr><td>Pull request</td><td>changed files, budgets, one sticky comment</td><td>~1min</td></tr>
+</tbody></table></div>
+<p>A Claude Code hook reads JSON on stdin and answers with an exit code. <code>0</code> lets the action through; <code>2</code> blocks it and hands stderr back to the model to act on.</p>
+<figure class="code"><figcaption>.claude/hooks/gate-on-edit.mjs</figcaption><pre><code data-lang="ts">const { ok, output, error } = runGate(root, [&#x27;--file&#x27;, rel, &#x27;--profile&#x27;, &#x27;hook&#x27;, &#x27;--format&#x27;, &#x27;hook&#x27;]);
+
+if (error) {
+    // A broken gate must not become a broken edit loop. Say so and move on.
+    process.stderr.write(`quality gate could not run: ${error}\n`);
+    process.exit(0);
+}
+if (!ok) block(`Quality gate blocked this edit to ${rel}:\n\n${output}`);   // exit 2</code></pre></figure>
+<div class="out"><div class="out-bar">what the model receives, exit code 2</div><pre>Quality gate blocked this edit to src/tests/demo.spec.ts:
+
+src/tests/demo.spec.ts:1  [error] framework/spec-imports-playwright-test
+    fix: Import from `@fixtures/test-base`.
+src/tests/demo.spec.ts:14 [error] slop/test-without-assertion
+    fix: Add a web-first assertion for the outcome the test is named after.</pre></div>
+<div class="note"><p><strong>Telling the model the rules costs a few hundred tokens. Blocking an edit and having it rewrite the file costs a whole turn.</strong> Inject first, block second. And inject only the rules that block, or you bury them.</p></div>
+<p>ESLint is deliberately not in the edit hook: 2.2 seconds against the engine's 0.14, on every keystroke-sized change. It runs at commit and in CI, where two seconds is free.</p>
+<p class="try"><b>Try it</b> Wire the edit hook, then ask your agent to write a spec importing <code>@playwright/test</code>. Watch it correct itself without you saying anything.</p>
+</section>
+<section class="step" id="s7">
+<div class="step-head"><span class="step-n">7</span><div><h2>Make it survive</h2><p class="idea">Most gates are deleted, not outgrown. Three things stop that.</p></div></div>
+<h3 style="font-size:1.12rem;margin-top:4px">Read every finding of the first run</h3>
+<p>The first full run here produced <strong>174 findings</strong>. That was three wrong rules, not 174 problems.</p>
+<div class="tw"><table>
+<thead><tr><th class="n">Hits</th><th>Root cause</th><th>Fix</th></tr></thead>
+<tbody>
+<tr><td class="n">67</td><td>a reporter that renders emoji, flagged as slop</td><td>exclude by name, reason in the rule</td></tr>
+<tr><td class="n">14</td><td>every exported interface reported as dead</td><td>count value exports only</td></tr>
+<tr><td class="n">11</td><td>the best comments in the repo flagged as narration</td><td>make the comment the denominator</td></tr>
+<tr><td class="n">5</td><td>the logging wrapper told to stop logging</td><td>scope the rule to specs and page objects</td></tr>
+</tbody></table></div>
+<p>Down to 73, all real. Only the first is an exclusion. <strong>Prefer narrowing a rule's scope:</strong> an exclusion says "not here", a scope says "here is where the premise holds".</p>
+<h3 style="font-size:1.12rem;margin-top:26px">Let people out, but never silently</h3>
+<figure class="code"><figcaption>a waiver</figcaption><pre><code data-lang="ts">// gate-allow ponytail/attaches-what-the-trace-holds -- the diff is computed here, the trace has neither side
+await testInfo.attach(&#x27;shape-diff&#x27;, { body: diff });</code></pre></figure>
+<p>A waiver with no reason is <strong>itself an error</strong>. A gate that can be switched off silently stops being a gate, and the reason is what a reviewer reads six months later. Waived findings still appear in the report, under their reasons.</p>
+<h3 style="font-size:1.12rem;margin-top:26px">Switch it on for changed files only</h3>
+<p>A gate turned on across a suite that predates it fails immediately, and the first response is always to weaken the gate. Scope CI to the diff and write the baseline down instead of sweeping it.</p>
+<div class="tw"><table>
+<thead><tr><th>Check</th><th class="n">Errors</th><th class="n">Warnings</th></tr></thead>
+<tbody>
+<tr><td><code>gate --all</code></td><td class="n">7</td><td class="n">57</td></tr>
+<tr><td><code>eslint src</code></td><td class="n">13</td><td class="n">21</td></tr>
+<tr><td><code>tsc --noEmit</code></td><td class="n">0</td><td class="n">0</td></tr>
+</tbody></table></div>
+<p>So the whole repo does not pass today. That is the honest state, not a bug. What matters is that a pull request cannot add to either number.</p>
+<p class="try"><b>Try it</b> Set your CI budgets one below your worst branch, open a PR, watch it fail, then tune from evidence rather than a guess.</p>
+</section>
+<section class="step" id="next">
+<div class="step-head"><span class="step-n">&rarr;</span><div><h2>Now build it</h2><p class="idea">The twelve-lesson version, and the exercises that mark your work.</p></div></div>
+<div class="tw"><table>
+<thead><tr><th>Command</th><th>What it does</th></tr></thead>
+<tbody>
+<tr><td><code>npm run gate</code></td><td>whole repo</td></tr>
+<tr><td><code>npm run gate -- --file &lt;path&gt;</code></td><td>one file</td></tr>
+<tr><td><code>npm run gate:changed</code></td><td>what this branch adds, with budgets</td></tr>
+<tr><td><code>npm run gate:rules</code></td><td>every rule and its severity</td></tr>
+<tr><td><code>npm run exercises</code></td><td>mark the twelve lessons</td></tr>
+<tr><td><code>node quality/selftest.mjs</code></td><td>prove the rules still fire</td></tr>
+</tbody></table></div>
+<p><a href="quality-gates-tutorial.html"><strong>The full twelve-lesson guide</strong></a> takes each step apart: the CLI and its four report formats, call sites and block bodies, the cross-file import graph, encoding your own non-negotiables, profiles and budgets, and the PR workflow.</p>
+<p>The runnable half lives in <code>exercises/</code>. Four lessons are stubs checked against the real engine and the real import graph; the rest check the artifact each lesson adds. A clean clone reports <strong>8 passing, 4 to do, 0 failing</strong>, and the to-dos are the point.</p>
+</section>
+
+
+</main>
+
+<footer>
+  <div class="foot-in">
+    <div>
+      <a class="brand" href="https://thetestingacademy.com"><i></i>The Testing Academy</a>
+      <p>Quality Gates in Seven Steps, the short cut. By Pramod Dutta.</p>
+    </div>
+    <p><a href="https://thetestingacademy.com">thetestingacademy.com</a> &nbsp; <a href="https://www.youtube.com/@TheTestingAcademy">YouTube @TheTestingAcademy</a> &nbsp; <a href="https://sdet.live/ai-course">AI course: sdet.live/ai-course</a></p>
+  </div>
+</footer>
+
+<script>
+(function () {
+  var esc = function (s) { return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;'); };
+  var TS = /(`(?:\\.|[^`\\])*`|"(?:\\.|[^"\\\n])*"|'(?:\\.|[^'\\\n])*'|\/\/[^\n]*|\/\*[\s\S]*?\*\/|\b(?:import|from|export|const|let|var|function|return|if|else|for|while|of|in|new|async|await|try|catch|finally|class|interface|type|typeof|as|null|undefined|true|false|void|extends|implements)\b|\b\d+(?:\.\d+)?\b)/g;
+  var SH = /(#[^\n]*)/g;
+  function paint(code) {
+    var lang = code.getAttribute('data-lang') || 'ts';
+    if (lang === 'text') return;
+    var re = lang === 'sh' ? SH : TS;
+    var src = code.textContent, out = '', last = 0, m;
+    re.lastIndex = 0;
+    while ((m = re.exec(src))) {
+      out += esc(src.slice(last, m.index));
+      var t = m[0], cls;
+      if (t.charAt(0) === '#' || t.slice(0, 2) === '//' || t.slice(0, 2) === '/*') cls = 'hc';
+      else if (/^["'`]/.test(t)) cls = 'hs';
+      else if (/^\d/.test(t)) cls = 'hn';
+      else cls = 'hk';
+      out += '<span class="' + cls + '">' + esc(t) + '</span>';
+      last = m.index + t.length;
+    }
+    out += esc(src.slice(last));
+    code.innerHTML = out;
+  }
+  Array.prototype.forEach.call(document.querySelectorAll('pre code'), paint);
+
+  Array.prototype.forEach.call(document.querySelectorAll('.code'), function (box) {
+    var btn = document.createElement('button');
+    btn.className = 'copy'; btn.type = 'button'; btn.textContent = 'Copy';
+    btn.addEventListener('click', function () {
+      var text = box.querySelector('code').textContent;
+      var done = function () { btn.textContent = 'Copied'; setTimeout(function () { btn.textContent = 'Copy'; }, 1500); };
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(text).then(done, function () { done(); });
+      } else { done(); }
+    });
+    box.appendChild(btn);
+  });
+
+  var links = Array.prototype.slice.call(document.querySelectorAll('.rail a'));
+  var byId = {};
+  links.forEach(function (a) { byId[a.getAttribute('href').slice(1)] = a; });
+  if ('IntersectionObserver' in window) {
+    var io = new IntersectionObserver(function (entries) {
+      entries.forEach(function (e) {
+        if (e.isIntersecting) {
+          links.forEach(function (a) { a.classList.remove('active'); });
+          var a = byId[e.target.id]; if (a) a.classList.add('active');
+        }
+      });
+    }, { rootMargin: '-15% 0px -75% 0px' });
+    Array.prototype.forEach.call(document.querySelectorAll('main section[id]'), function (s) { io.observe(s); });
+  }
+})();
+</script>
+</body>
+</html>

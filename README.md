@@ -938,6 +938,11 @@ budgets, the hooks, and the PR gate. Open it in a browser. Six diagrams, four of
 the whiteboard style from `.claude/skills/feature-explainer/references/hand-drawn-svg.md`, with the
 lettering left in IBM Plex so the labels stay legible.
 
+[`docs/quality-gates-tutorial-v2.html`](docs/quality-gates-tutorial-v2.html) is the short cut of the
+same material: seven steps, about thirty minutes, built for teaching it rather than referencing it.
+One idea per step, one code block, one thing to try. Reach for the twelve-lesson version when you
+need the detail it leaves out.
+
 `exercises/` is the part you run. Four lessons have stubs that are checked against the real engine
 and real repository data; the other eight check the artifact the lesson adds to the repo.
 

@@ -53,6 +53,7 @@ reference implementation in `quality/` alone.
 ## The prose version
 
 `docs/quality-gates-tutorial.html` is the same twelve lessons as a study guide
-for humans, with diagrams and the real terminal output of this repo. Open it in
-a browser. These reference files are the version for an agent: same content,
-no page furniture.
+for humans, with diagrams and the real terminal output of this repo.
+`docs/quality-gates-tutorial-v2.html` is the seven-step cut of it, for teaching
+in about thirty minutes. Both open in a browser. These reference files are the
+version for an agent: same content, no page furniture.
