@@ -13,6 +13,8 @@ A TypeScript test automation framework built on [Playwright](https://playwright.
 - **Winston** - logging
 - **Allure Playwright** - test reporting
 - **dotenv** - environment configuration
+- **ESLint** (`typescript-eslint` + `eslint-plugin-playwright`) - lint and type-aware checks
+- **`quality/` rule engine** - the four quality gates, zero dependencies
 
 ---
 
@@ -859,20 +861,117 @@ if (result.available) use(result.data);   // schema-valid, or available is false
 
 Two guarantees callers lean on: `data` is schema-valid or `available` is false, with no third state; and a missing key returns an unavailable result rather than throwing, so a suite runs unchanged without one.
 
+## Quality Gates
+
+**Concept:** Four gates run over every file this repo produces: **ai-slop**, **ponytail**,
+**over-engineering**, and **framework-patterns**. They fire in four places, from the moment a prompt
+is submitted to the moment a pull request is opened, and all four call one CLI:
+`node quality/gate.mjs`. 46 rules live as data in `rules/*.rules.mjs`; the engine that runs them
+lives in `quality/` and has no dependencies.
+
+**Why:** Nothing else in the pipeline objects to a spec that asserts nothing. `tsc` compiles it,
+ESLint has no rule for it, the suite reports it green, and CI goes blue. A reviewer objects, once,
+and then gets tired. That gap is where generated code walks through, and it widens with the volume
+of code an agent can produce.
+
+**Q&A - why use this?**
+
+- **Q: What is "ponytail"?** A: The question `booking-crud-end-to-end.ponytail.spec.ts` asks of every
+  line: does anything else in the run already record this? The gate encodes that file's own cut list,
+  and reports the 33-line spec clean while giving its 73-line twin exactly the findings the cut table
+  above lists.
+- **Q: Will it block me?** A: 13 rules are errors and block an edit, a commit, and the pull request.
+  The rest warn, and warnings are budgeted per change rather than per repo, so a handful is fine and
+  a pile is not.
+- **Q: What if a rule is wrong for my case?** A: `// gate-allow <rule-id> -- <reason>`. A waiver with
+  no reason is itself an error, because a gate that can be switched off silently stops being one.
+- **Q: What's the gotcha?** A: The ponytail gate only holds because `playwright.config.ts` sets
+  `trace: 'on'` for every test. Turn tracing off and the attachments it cuts stop being redundant.
+
+```mermaid
+flowchart TD
+    P["prompt mentioning a spec<br/>or page object"] -->|UserPromptSubmit| I["inject the 13 blocking rules"]
+    I --> G["Claude generates"]
+    G -->|PreToolUse Write| L{"right layer?"}
+    L -->|no| D["deny, with the reason"]
+    L -->|yes| W["file written"]
+    W -->|PostToolUse, 0.14s| E{"error?"}
+    E -->|yes| B["block, feed findings back,<br/>fixed in the same turn"]
+    E -->|no| C["carry on"]
+    C -->|git commit| S["gate + ESLint on staged files"]
+    S --> PR["pull request: changed files,<br/>budgets, sticky comment"]
+```
+
+The split with ESLint is deliberate. ESLint owns what has a correct answer (a floating promise, a
+hard wait, `force: true`, `any`); the engine owns what needs the repo's own shape (is this used
+twice, does this comment add anything, does this spec go through the fixture). `waitForTimeout` is
+the most recognisable AI tell there is and it is **not** in the ai-slop pack, because
+`playwright/no-wait-for-timeout` already owns it. One owner per rule.
+
+```bash
+npm run gate                      # whole repo, commit profile
+npm run gate -- --file src/pages/CartPage.ts
+npm run gate:changed              # what this branch adds, with CI budgets
+npm run gate:audit                # everything, fails on nothing
+npm run gate:rules                # every rule and its severity
+npm run gate:install-hooks        # git pre-commit, for commits not made by Claude
+npm run lint                      # ESLint
+npm run verify                    # typecheck + lint + gate
+node quality/selftest.mjs         # proves the rules still fire
+```
+
+A type-aware lint of one file costs 2.2 seconds against the engine's 0.14, so ESLint runs at commit
+time and in CI, never in the edit loop. The gate always indexes the whole repo even when reporting on
+one file, because "nothing imports this export" cannot be answered from inside the file that defines
+it.
+
+The whole-repo baseline is 7 errors, 57 warnings, 9 info from the gate and 13 errors, 21 warnings
+from ESLint, all in code that predates them. The pull request gate runs on **changed files only**, so
+a change cannot add to either number while the baseline is paid down file by file. Full write-up in
+[`docs/QUALITY-GATES.md`](docs/QUALITY-GATES.md).
+
 ## Project Structure
 
 ```
 .
 ├── .claude/
 │   ├── commands/
-│   │   └── gogo.md        # /gogo: update README, commit, push
-│   └── skills/            # 12 agent skills, read by Claude Code AND Copilot
+│   │   ├── gogo.md        # /gogo: update README, commit, push
+│   │   └── gate.md        # /gate: run the quality gates and fix what they find
+│   ├── hooks/             # Pre- and post-generation gates
+│   │   ├── inject-rules.mjs          # Blocking rules into context before generation
+│   │   ├── guard-file-placement.mjs  # Denies a spec written outside src/tests/
+│   │   ├── gate-on-edit.mjs          # Gate on every Write/Edit, blocks on error
+│   │   ├── gate-on-commit.mjs        # Gate + ESLint before git commit
+│   │   └── lib.mjs
+│   ├── settings.json      # Hook wiring
+│   └── skills/            # 18 agent skills, read by Claude Code AND Copilot
+├── .githooks/
+│   └── pre-commit         # Same gate for commits not made by Claude
 ├── .github/
 │   ├── copilot-instructions.md  # Repo-wide rules for GitHub Copilot
-│   └── workflows/         # CI pipeline (GitHub Actions)
+│   └── workflows/         # playwright.yml (tests) + quality-gate.yml (gates)
+├── eslint.config.mjs      # Flat config: typescript-eslint + eslint-plugin-playwright
+├── quality/               # The rule engine. Zero dependencies
+│   ├── gate.mjs           # The one entry point every stage calls
+│   ├── gate.config.mjs    # Include/exclude, severity overrides, profiles
+│   ├── selftest.mjs       # Proves the rules still fire
+│   ├── __tests__/fixtures/  # One slop-ridden spec, one clean one
+│   └── engine/
+│       ├── source.mjs     # Lexer: masks strings and comments, keeps line offsets
+│       ├── repo-index.mjs # Import graph, aliases read from tsconfig.json
+│       ├── detectors.mjs  # 12 primitives a rule can be built from
+│       ├── run.mjs        # Rule loading, scoping, waivers, budgets
+│       └── report.mjs     # console / hook / markdown / json
+├── rules/                 # The rules, as data
+│   ├── ai-slop.rules.mjs
+│   ├── ponytail.rules.mjs
+│   ├── over-engineering.rules.mjs
+│   └── framework-patterns.rules.mjs
 ├── .env.example           # Committed template; CI copies it to .env
 ├── docs/
 │   ├── assets/                  # Diagrams and report screenshots used by this README
+│   ├── QUALITY-GATES.md         # The four gates: design, calibration, adoption
 │   ├── Playwright-Worker.md     # Parallel workers: measured timings, RAM per worker
 │   ├── ai-factory.prompt.md     # Brief for adding the LLM agent layer
 │   └── postman_api_collection/  # Restful Booker collection, incl. PATCH/DELETE
@@ -1155,12 +1254,26 @@ A plain `npx playwright test` now runs both projects, so CI reaches two live thi
 outage on either turns the build red without a code change. Split the job with `--project=` if UI
 and API results need to fail independently.
 
+`.github/workflows/quality-gate.yml` is a second, independent workflow on the same triggers:
+
+1. Checks out with `fetch-depth: 0`, because reporting on what a pull request changed needs a merge
+   base and the default shallow checkout has none
+2. Type checks
+3. Runs `node quality/selftest.mjs`, which proves the rules still fire before trusting their verdict
+4. Runs ESLint over the changed files only
+5. Runs the gate over the changed files under the `ci` profile, which adds per-gate warning budgets
+6. Posts the markdown report as one pull request comment, edited in place on every push
+7. Fails the build if the gate reported an error or blew a budget
+
+Steps 4 and 5 are scoped to changed files on purpose. A gate switched on across a suite that
+predates it fails immediately, and the first response is always to weaken the gate.
+
 ## Agent Skills
 
-**Concept:** `.claude/skills/` holds 12 agent skills: 11 adapted from the
+**Concept:** `.claude/skills/` holds 18 agent skills: 11 adapted from the
 [TheTestingAcademy Playwright pack](https://github.com/PramodDutta/skillmasterclass/tree/main/skillmasterclass/skills/framework-packs/playwright-pack),
-plus one written for this repo. Each is a `SKILL.md` with YAML frontmatter that an agent loads only
-when the task matches its description.
+plus one for explaining a shipped change and six for the quality gates. Each is a `SKILL.md` with
+YAML frontmatter that an agent loads only when the task matches its description.
 
 **Why:** The upstream pack is written for generic Playwright. These copies are rewritten against
 *this* framework, so a generated spec imports from `@fixtures/test-base` rather than
@@ -1186,6 +1299,12 @@ suggestions and chat, which do not load skills the same way.
 | `pw-accessibility-auditor` | axe checks (`@axe-core/playwright` not installed yet) |
 | `pw-ci-configurator` | Editing `.github/workflows/playwright.yml` |
 | `feature-explainer` | An ELI5 page plus hand-drawn whiteboard for a shipped change |
+| `quality-gate` | Running and interpreting all four gates plus ESLint |
+| `ai-slop-review` | Reviewing generated code before it merges |
+| `ponytail-review` | Cutting a spec that is mostly ceremony |
+| `over-engineering-review` | Deciding whether an abstraction earns its place |
+| `framework-pattern-review` | Onboarding code into the framework's shape |
+| `quality-rule-author` | Adding, tuning, or retiring a gate rule |
 
 **Q&A - why use these?**
 
@@ -1200,7 +1319,10 @@ suggestions and chat, which do not load skills the same way.
 │   ├── assets/explainer-template.html   # page shell, tokens, both themes
 │   ├── references/hand-drawn-svg.md     # rough-box / arrow / sticky recipes
 │   └── scripts/verify-explainer.js      # renders and fails on real defects
-└── pw-*/SKILL.md                        # 11 framework-adapted Playwright skills
+├── pw-*/SKILL.md                        # 11 framework-adapted Playwright skills
+└── {quality-gate,ai-slop-review,ponytail-review,
+    over-engineering-review,framework-pattern-review,
+    quality-rule-author}/SKILL.md         # 6 quality gate skills
 ```
 
 ## Slash Commands
@@ -1211,6 +1333,16 @@ commit, and push to `main`. Run it after a feature lands so the docs never drift
 ```bash
 /gogo                 # README + commit + push
 /gogo skip readme     # commit and push only
+```
+
+`.claude/commands/gate.md` defines `/gate`: run both halves of the quality gate over the current
+change, fix in order of consequence, and report what was waived and why.
+
+```bash
+/gate                             # this branch's change against main
+/gate src/pages/CartPage.ts       # one file
+/gate staged                      # what is staged
+/gate all                         # whole-repo audit
 ```
 
 ## License

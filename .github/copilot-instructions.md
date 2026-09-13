@@ -22,6 +22,27 @@ alongside `.github/skills` and `.agents/skills`. Load the matching one before ge
 | `pw-accessibility-auditor` | axe checks (dependency not installed yet) |
 | `pw-ci-configurator` | `.github/workflows/playwright.yml` |
 | `feature-explainer` | ELI5 + whiteboard page for a shipped change |
+| `quality-gate` | running or interpreting the gates |
+| `ai-slop-review` | reviewing generated code before merge |
+| `ponytail-review` | cutting a spec that is mostly ceremony |
+| `over-engineering-review` | whether an abstraction earns its place |
+| `framework-pattern-review` | onboarding code into the framework's shape |
+| `quality-rule-author` | adding or tuning a gate rule |
+
+## Quality gates
+
+The nine non-negotiables below are enforced, not just documented. `rules/framework-patterns.rules.mjs`
+carries one rule per numbered item, and each rule's `nn` field is the item it enforces. Run
+`npm run gate -- --file <path>` before handing code over; `npm run gate:rules` lists all 46 rules and
+their severities. Thirteen are errors and block a commit and the pull request.
+
+Three more gates run alongside it: **ai-slop** (tests that assert nothing, comments that restate the
+line below, generic titles, swallowed errors), **ponytail** (machinery the trace already records),
+and **over-engineering** (abstractions with one caller, exports with none). Design notes in
+`docs/QUALITY-GATES.md`.
+
+Waive a genuine exception with `// gate-allow <rule-id> -- <reason>`. A waiver with no reason is
+itself an error.
 
 ## Non-negotiables
 

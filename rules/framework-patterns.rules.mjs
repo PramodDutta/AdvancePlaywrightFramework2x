@@ -1,0 +1,181 @@
+/**
+ * framework-patterns - the non-negotiables, made enforceable.
+ *
+ * Every rule here maps to a numbered item in `.github/copilot-instructions.md`.
+ * That file already told both humans and agents what the shape of this
+ * framework is; it had no way to notice when something ignored it. The `nn`
+ * field on each rule is the item it enforces, so a finding can be traced back
+ * to the sentence it came from instead of arguing about taste.
+ *
+ * These are the rules that are errors rather than warnings. A spec that builds
+ * its own page object still passes; it has just stopped being part of the
+ * framework, and the next person to change a locator will find out the hard way.
+ */
+export default {
+    gate: 'framework-patterns',
+    rules: [
+        {
+            id: 'framework/spec-imports-playwright-test',
+            nn: 1,
+            title: 'UI spec imports @playwright/test directly',
+            severity: 'error',
+            detect: 'importShape',
+            specsOnly: true,
+            exclude: ['src/tests/apisTests/**', 'src/tests/aiTest/**'],
+            options: { forbidSource: /^@playwright\/test$/ },
+            why: 'Non-negotiable 1. `@fixtures/test-base` is the module that carries the page-object and state fixtures. A spec that imports the raw `test` gets none of them and silently opts out of the framework.',
+            fix: "Import from `@fixtures/test-base`: `import { test, expect } from '@fixtures/test-base';`. API specs under `apisTests/` are excluded on purpose, they teach the raw request API.",
+        },
+        {
+            id: 'framework/page-object-constructed-in-spec',
+            nn: 2,
+            title: 'Page object constructed inside a spec',
+            severity: 'error',
+            detect: 'regex',
+            specsOnly: true,
+            options: { pattern: /\bnew\s+[A-Z]\w*Page\s*\(/ },
+            why: 'Non-negotiable 2. Constructing it in the spec bypasses the fixture, so the object is built against a different lifecycle than every other page in the suite and setup has to be repeated by hand.',
+            fix: 'Take it as a fixture parameter: `test("...", async ({ loginPage }) => ...)`. Add the fixture to `test-base.ts` if it does not exist yet.',
+        },
+        {
+            id: 'framework/locator-in-spec',
+            nn: 3,
+            title: 'Locator defined in a spec',
+            severity: 'error',
+            detect: 'regex',
+            specsOnly: true,
+            options: { pattern: /\b(?:page|frame)\s*\.\s*(?:locator|getBy[A-Z]\w*)\s*\(/ },
+            why: 'Non-negotiable 3. A selector in a spec is invisible to every other spec, so the day the markup changes you fix it in the page object and the suite still fails here.',
+            fix: 'Move it into the matching `src/pages/*.ts` as a `private readonly` field and expose an action method.',
+        },
+        {
+            id: 'framework/page-object-not-extending-base',
+            nn: 4,
+            title: 'Page object does not extend BasePage',
+            severity: 'error',
+            detect: 'regex',
+            layers: ['page'],
+            exclude: ['src/pages/BasePage.ts'],
+            options: { pattern: /^\s*export\s+(?:default\s+)?class\s+\w+\s*\{/m },
+            why: 'Non-negotiable 4. `BasePage` is what supplies `this.el` (the logged action wrapper), `this.log`, and `goto()`. A page without it has no logging and navigates without respecting baseURL.',
+            fix: "Extend it and call `super(page, 'ClassName')` in the constructor.",
+        },
+        {
+            id: 'framework/page-object-missing-path',
+            nn: 4,
+            title: 'Page object has no static PATH',
+            severity: 'warn',
+            detect: 'fileMissing',
+            layers: ['page'],
+            exclude: ['src/pages/BasePage.ts'],
+            options: {
+                required: /static\s+readonly\s+PATH\b/,
+                skipIf: /abstract\s+class/,
+                detail: 'no `static readonly PATH`',
+            },
+            why: 'Non-negotiable 4. The PATH constant is how a page is navigated to without a URL literal appearing in a spec.',
+            fix: "Add `static readonly PATH = '/...';` and navigate with `this.goto(ThisPage.PATH)`.",
+        },
+        {
+            id: 'framework/raw-locator-action-in-page',
+            nn: 4,
+            title: 'Page object acts on a locator directly',
+            severity: 'warn',
+            detect: 'regex',
+            layers: ['page'],
+            options: { pattern: /\bthis\.(?!el\b)\w+\s*\.\s*(?:click|fill|type|press|check|uncheck|selectOption|hover|dblclick)\s*\(/ },
+            why: 'Non-negotiable 4. `this.el.*` is the wrapper that logs every action with its page scope. A direct `.click()` succeeds and leaves no trace in the log, so a failure two steps later has no breadcrumb.',
+            fix: 'Route it through `this.el.click(this.someLocator)` and friends.',
+        },
+        {
+            id: 'framework/dotenv-in-spec',
+            nn: 5,
+            title: 'dotenv.config() called outside @config/env',
+            severity: 'error',
+            detect: 'regex',
+            exclude: ['src/config/env.ts', 'playwright.config.ts'],
+            options: { pattern: /\bdotenv\.config\s*\(/ },
+            why: 'Non-negotiable 5, and a bug this repo already hit once: imports are hoisted above the call, so any module that reads `process.env` at load time sees nothing. It fails as a missing credential, far from the cause.',
+            fix: 'Import `@config/env` instead. Importing it loads `.env` once, before anything reads it.',
+        },
+        {
+            id: 'framework/env-read-directly',
+            nn: 5,
+            title: 'process.env read outside @config/env',
+            severity: 'warn',
+            detect: 'regex',
+            layers: ['spec', 'page', 'fixture'],
+            options: { pattern: /\bprocess\.env\.\w+/ },
+            why: 'Non-negotiable 5. `requireEnv` fails at collection with the name of the missing key; a bare `process.env.X` yields undefined and fails later as something unrelated.',
+            fix: 'Use `requireEnv("KEY")`, `envOr("KEY", fallback)`, or `assertEnv(...)` from `@config/env`.',
+        },
+        {
+            id: 'framework/inline-credential-literal',
+            nn: 6,
+            title: 'Credential hard-coded',
+            severity: 'error',
+            detect: 'regex',
+            options: { pattern: /\b(?:password|passwd|secret|api[_-]?key|token)\s*[:=]\s*['"][^'"]{3,}['"]/i },
+            why: 'Non-negotiable 6. A credential in the source is a credential in the git history, and it stops the suite from being pointed at another environment.',
+            fix: 'Read it from `@config/credentials` or `@testdata/logintestdata.json`, backed by `.env`.',
+        },
+        {
+            id: 'framework/credential-argument-literal',
+            nn: 6,
+            title: 'Login called with literal credentials',
+            severity: 'error',
+            detect: 'regex',
+            layers: ['spec'],
+            options: { pattern: /\.(?:loginAs|login|signIn)\s*\(\s*['"][^'"]+['"]\s*,\s*['"][^'"]+['"]\s*\)/ },
+            why: 'Non-negotiable 6. The same pair of literals ends up in a dozen specs, and changing the test account becomes a find-and-replace across the suite.',
+            fix: 'Use the `validLogin` fixture, or pass `credentials.standardUser` / `credentials.password` from `@config/credentials`.',
+        },
+        {
+            id: 'framework/zod-import',
+            nn: 7,
+            title: 'zod imported',
+            severity: 'error',
+            detect: 'importShape',
+            options: { forbidSource: /^zod(\/|$)/ },
+            why: 'Non-negotiable 7. Schema validation in this framework is `ajv` + `ajv-formats`, wired through `@utils/SchemaValidator`. zod is not a dependency, so this does not install in CI.',
+            fix: 'Use `SchemaValidator` with a JSON schema under `src/testdata/schemas/`.',
+        },
+        {
+            id: 'framework/cross-layer-relative-import',
+            nn: 10,
+            title: 'Relative import across layers',
+            severity: 'warn',
+            detect: 'importShape',
+            options: { requireAliasAcrossLayers: true },
+            why: 'Path aliases exist so a file can move without rewriting every importer. `../../../api/BookingApi` breaks the moment either file moves, and it is unreadable in a review diff.',
+            fix: 'Use the alias: `@api/`, `@pages/`, `@utils/`, `@config/`, `@fixtures/`, `@testdata/`.',
+        },
+        {
+            id: 'framework/hardcoded-url',
+            title: 'URL literal in a spec or page object',
+            severity: 'warn',
+            detect: 'regex',
+            layers: ['spec', 'page'],
+            // `process.env.API_BASE_URL || 'https://...'` is a default, not a pin.
+            options: { target: 'strings', pattern: /^https?:\/\/\w/, unless: /process\.env|envOr|requireEnv/ },
+            why: 'It pins the test to one environment, which is the thing `TTA_ENV` and `resolveBaseURL()` exist to prevent. `TTA_ENV=stage npx playwright test` will silently still hit the old host.',
+            fix: 'Navigate with a relative path so `baseURL` applies, or read the host from `@config/env`.',
+        },
+        {
+            id: 'framework/api-spec-without-schema',
+            title: 'API spec never validates a response shape',
+            severity: 'info',
+            detect: 'fileMissing',
+            include: ['src/tests/apisTests/**/*.spec.ts'],
+            // 01_restfulbooker_raw is the documented "raw request fixture" teaching
+            // level; asking it for a schema validator misses its point.
+            exclude: ['src/tests/apisTests/01_restfulbooker_raw/**'],
+            options: {
+                required: /SchemaValidator|validateSchema|toMatchObject|JSONPath/,
+                detail: 'no schema check, JSONPath query, or shape assertion',
+            },
+            why: 'Field-by-field assertions pass while the contract around them drifts: a renamed field, a number that became a string, a null that used to be absent.',
+            fix: 'Validate the body with `SchemaValidator` against a schema in `src/testdata/schemas/`, or assert the shape with `toMatchObject`.',
+        },
+    ],
+};

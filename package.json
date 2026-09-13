@@ -3,11 +3,24 @@
   "version": "1.0.0",
   "description": "",
   "main": "index.js",
-  "scripts": {},
+  "scripts": {
+    "test": "playwright test",
+    "typecheck": "tsc --noEmit -p tsconfig.json",
+    "lint": "eslint src playwright.config.ts quality rules eslint.config.mjs",
+    "lint:fix": "eslint --fix src playwright.config.ts quality rules eslint.config.mjs",
+    "gate": "node quality/gate.mjs --all --profile commit",
+    "gate:staged": "node quality/gate.mjs --staged --profile commit",
+    "gate:changed": "node quality/gate.mjs --changed --profile ci",
+    "gate:audit": "node quality/gate.mjs --all --profile audit",
+    "gate:rules": "node quality/gate.mjs --list-rules",
+    "gate:install-hooks": "git config core.hooksPath .githooks && echo \"git hooks enabled from .githooks/\"",
+    "verify": "npm run typecheck && npm run lint && npm run gate"
+  },
   "keywords": [],
   "author": "",
   "license": "ISC",
   "devDependencies": {
+    "@eslint/js": "^9.39.5",
     "@faker-js/faker": "^10.5.0",
     "@playwright/test": "^1.62.1",
     "@types/node": "^26.2.0",
@@ -16,7 +29,12 @@
     "allure-playwright": "^3.10.2",
     "csv-parse": "^7.0.2",
     "dotenv": "^17.4.2",
+    "eslint": "^9.39.5",
+    "eslint-plugin-playwright": "^2.11.0",
+    "globals": "^17.12.0",
     "jsonpath-plus": "^10.4.0",
+    "typescript": "^5.9.3",
+    "typescript-eslint": "^8.70.0",
     "winston": "^3.19.0",
     "xlsx": "^0.18.5"
   }

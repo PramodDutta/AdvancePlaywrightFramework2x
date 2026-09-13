@@ -1,0 +1,28 @@
+#!/bin/sh
+#
+# The same gate, for commits that do not come from Claude Code.
+#
+# Enable it once per clone:  npm run gate:install-hooks
+# Bypass it deliberately:    git commit --no-verify
+#
+# This runs the identical CLI the Claude hook and CI run, so a commit cannot
+# pass here and fail there for a different reason.
+set -e
+
+STAGED=$(git diff --cached --name-only --diff-filter=ACMR | grep -E '^(src/.*\.ts|playwright\.config\.ts)$' || true)
+[ -z "$STAGED" ] && exit 0
+
+echo "Running quality gate on staged files..."
+node quality/gate.mjs --staged --profile commit || {
+    echo ""
+    echo "Commit blocked. Fix the errors above, or run 'git commit --no-verify' if you have a reason."
+    exit 1
+}
+
+echo "Running ESLint on staged files..."
+# shellcheck disable=SC2086
+./node_modules/.bin/eslint --no-warn-ignored $STAGED || {
+    echo ""
+    echo "Commit blocked by ESLint. Try 'npm run lint:fix' first."
+    exit 1
+}

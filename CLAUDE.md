@@ -23,6 +23,16 @@ TTA_ENV=stage npx playwright test
 
 # View HTML report
 npx playwright show-report
+
+# Quality gates and lint
+npm run gate                       # whole repo, commit profile
+npm run gate -- --file <path>      # one file
+npm run gate:changed               # what this branch adds, with CI budgets
+npm run gate:audit                 # everything, fails on nothing
+npm run gate:rules                 # every rule and its severity
+npm run lint                       # ESLint
+npm run verify                     # typecheck + lint + gate
+node quality/selftest.mjs          # proves the rules still fire
 ```
 
 No build step. `tsconfig.json` uses `commonjs` modules; `playwright.config.ts` is TypeScript and Playwright handles `ts` files natively.
@@ -79,6 +89,40 @@ Other env vars read from `.env`: `LOG_LEVEL`, `TEST_ENV`, `TEST_AUTHOR`, `USERNA
 ## CI
 
 GitHub Actions on `.github/workflows/playwright.yml`. Triggers on push/PR to `main`/`master`. Runs on ubuntu-latest, installs deps + browsers, runs `npx playwright test`, uploads `playwright-report/` artifact (30-day retention).
+
+## Quality Gates
+
+Four gates run over `src/**/*.ts` and `playwright.config.ts`: **ai-slop**, **ponytail**,
+**over-engineering**, **framework-patterns**. 46 rules live as data in `rules/*.rules.mjs`; the
+zero-dependency engine that runs them lives in `quality/`. Full design in `docs/QUALITY-GATES.md`.
+
+They fire in four places, all calling `node quality/gate.mjs`:
+
+| Stage | Hook | Consequence |
+|---|---|---|
+| Prompt submitted | `.claude/hooks/inject-rules.mjs` | The 13 blocking rules enter context |
+| Before a Write | `.claude/hooks/guard-file-placement.mjs` | Denies a spec outside `src/tests/` |
+| After Write/Edit | `.claude/hooks/gate-on-edit.mjs` | `error` blocks the edit, `warn` is printed |
+| Before `git commit` | `.claude/hooks/gate-on-commit.mjs` | Gate + ESLint on staged files |
+| Pull request | `.github/workflows/quality-gate.yml` | Changed files, budgets, sticky comment |
+
+Severity decides consequence, not importance. `error` blocks; `warn` is a judgement call counted
+against a per-change budget; `info` is a prompt to look.
+
+**ESLint owns what has a correct answer** (floating promises, `waitForTimeout`, `force: true`,
+`any`). **The engine owns what needs the repo's shape** (is this used twice, does this comment add
+anything, does this spec go through the fixture). One owner per rule. ESLint is not in the edit hook:
+a type-aware lint of one file costs 2.2s against the engine's 0.14s, so it runs at commit and in CI.
+
+Waive a genuine exception with `// gate-allow <rule-id> -- <reason>` on the line or the one above.
+**A waiver with no reason is itself an error.** Do not waive to go faster.
+
+The whole-repo baseline (7 error, 57 warn, 9 info from the gate; 13 error, 21 warn from ESLint) is
+pre-existing. The PR gate runs on changed files only, so a change cannot add to it. Do not sweep
+unrelated files to drive the number down.
+
+Adding a rule: `.claude/skills/quality-rule-author/SKILL.md`. Every new rule needs an expectation in
+`quality/selftest.mjs` and code that trips it in the slop fixture. The clean fixture must stay clean.
 
 ## Configuration Defaults
 

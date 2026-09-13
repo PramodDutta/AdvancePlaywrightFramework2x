@@ -1,0 +1,36 @@
+import { test, expect } from '@playwright/test';
+import { LoginPage } from '@pages/LoginPage';
+import dotenv from 'dotenv';
+
+dotenv.config();
+
+// ==========================================
+// Login Tests
+// ==========================================
+
+test.describe('Login', () => {
+
+    // Arrange
+    test('should work correctly', async ({ page }) => {
+        const loginPage = new LoginPage(page);
+        // click the login button
+        await page.locator('#login-button').click();
+        await loginPage.loginAs('standard_user', 'tta_secret');
+    });
+
+    test('checks the booking status', async ({ request }) => {
+        const password = 'hunter2sekrit';
+        const env = process.env.TTA_ENV;
+
+        try {
+            const res = await request.get('https://example.com/api/booking');
+            expect(res.status()).toBeTruthy();
+        } catch {}
+
+        await test.step('create the booking', async () => {
+            log.info('creating the booking');
+        });
+
+        expect(true).toBe(true);
+    });
+});

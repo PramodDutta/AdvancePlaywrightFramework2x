@@ -1,0 +1,132 @@
+name: Quality Gate
+
+on:
+  pull_request:
+    branches: [ main, master ]
+  push:
+    branches: [ main, master ]
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  gate:
+    name: Lint, types, and the four gates
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # The gate reports on what the pull request changed, which needs the
+          # base branch present to find a merge base. The default shallow
+          # checkout has neither.
+          fetch-depth: 0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: lts/*
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Type check
+        run: npm run typecheck
+
+      - name: Prove the gate still works
+        run: node quality/selftest.mjs
+
+      - name: Work out what changed
+        id: changed
+        run: |
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            BASE="origin/${{ github.base_ref }}"
+            git fetch --no-tags --depth=1 origin "${{ github.base_ref }}" || true
+            MERGE_BASE=$(git merge-base "$BASE" HEAD)
+            FILES=$(git diff --name-only --diff-filter=ACMR "$MERGE_BASE" HEAD | grep -E '^(src/.*\.ts|playwright\.config\.ts)$' || true)
+            echo "base=$BASE" >> "$GITHUB_OUTPUT"
+          else
+            FILES=$(git ls-files 'src/**/*.ts' 'playwright.config.ts' || true)
+            echo "base=" >> "$GITHUB_OUTPUT"
+          fi
+          echo "count=$(echo "$FILES" | grep -c . || true)" >> "$GITHUB_OUTPUT"
+          {
+            echo "files<<EOF"
+            echo "$FILES"
+            echo "EOF"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: ESLint (changed files)
+        if: steps.changed.outputs.count != '0'
+        run: |
+          echo "${{ steps.changed.outputs.files }}" | tr '\n' '\0' | xargs -0 --no-run-if-empty npx eslint --no-warn-ignored
+
+      # Console output for the job log, markdown for the PR comment. Both come
+      # from one run of one CLI, so the comment can never disagree with the log.
+      - name: Quality gate
+        id: gate
+        if: github.event_name == 'pull_request'
+        env:
+          GATE_BASE: ${{ steps.changed.outputs.base }}
+        run: |
+          set +e
+          node quality/gate.mjs --changed --profile ci --format markdown --out gate-report.md
+          STATUS=$?
+          node quality/gate.mjs --changed --profile ci
+          echo "status=$STATUS" >> "$GITHUB_OUTPUT"
+          exit 0
+
+      - name: Whole-repo audit
+        if: github.event_name == 'push'
+        run: node quality/gate.mjs --all --profile audit --out gate-report.md --format markdown
+
+      - uses: actions/upload-artifact@v4
+        if: ${{ !cancelled() }}
+        with:
+          name: quality-gate-report
+          path: gate-report.md
+          retention-days: 30
+
+      - name: Comment on the pull request
+        if: github.event_name == 'pull_request' && !cancelled()
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            const marker = '<!-- quality-gate-report -->';
+            const body = fs.existsSync('gate-report.md')
+              ? fs.readFileSync('gate-report.md', 'utf8')
+              : `${marker}\n## Quality Gate\nThe gate did not produce a report.`;
+
+            // One comment, edited in place. A gate that posts a new comment on
+            // every push trains people to collapse the thread.
+            const { data: comments } = await github.rest.issues.listComments({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+              per_page: 100,
+            });
+            const existing = comments.find((c) => c.body.includes(marker));
+
+            if (existing) {
+              await github.rest.issues.updateComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                comment_id: existing.id,
+                body,
+              });
+            } else {
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: context.issue.number,
+                body,
+              });
+            }
+
+      - name: Fail if the gate failed
+        if: github.event_name == 'pull_request' && steps.gate.outputs.status != '0'
+        run: |
+          echo "The quality gate reported blocking findings. See the pull request comment."
+          exit 1

@@ -1,0 +1,22 @@
+import { test, expect } from '@fixtures/test-base';
+import { buildBookingFromGenerator } from '@testdata/booking.data';
+
+test.describe('@p0 Checkout', () => {
+    test('rejects a locked-out account with an error banner', async ({ invalidLogin }) => {
+        await expect(invalidLogin.loginPage.errorMessage()).toContainText('locked out');
+    });
+
+    test('carries the selected item through to the order confirmation', async ({ loginWithSelectedItem, cartPage, checkoutCompletePage }) => {
+        const { itemId } = loginWithSelectedItem;
+
+        await cartPage.open();
+        await expect(cartPage.rowFor(itemId)).toBeVisible();
+
+        // restful-booker echoes the payload on create but not the generated id,
+        // so the read-back below is what proves it persisted.
+        const booking = buildBookingFromGenerator({ firstname: 'Checkout' });
+        await checkoutCompletePage.completeOrder(booking);
+
+        await expect(checkoutCompletePage.header()).toHaveText('Thank you for your order!');
+    });
+});
