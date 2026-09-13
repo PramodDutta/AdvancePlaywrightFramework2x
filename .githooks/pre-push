@@ -1,0 +1,43 @@
+#!/bin/sh
+#
+# Runs before `git push`. The slower, wider check that pre-commit cannot afford.
+#
+# Enable it once per clone:  npm run gate:install-hooks
+# Bypass it deliberately:    git push --no-verify
+#
+# The split with pre-commit is about cost and scope:
+#
+#   pre-commit  staged files only, gate + ESLint.   ~3s, runs many times a day
+#   pre-push    the whole branch, plus a type check. ~8s, runs a few times a day
+#
+# A type check is a whole-project operation, so it belongs here rather than in
+# front of every commit.
+set -e
+
+BASE="${GATE_BASE:-origin/main}"
+if ! git rev-parse --verify "$BASE" >/dev/null 2>&1; then
+    echo "pre-push: no $BASE to compare against, skipping"
+    exit 0
+fi
+
+MERGE_BASE=$(git merge-base "$BASE" HEAD)
+CHANGED=$(git diff --name-only --diff-filter=ACMR "$MERGE_BASE" HEAD | grep -E '^(src/.*\.ts|playwright\.config\.ts)$' || true)
+
+if [ -z "$CHANGED" ]; then
+    echo "pre-push: nothing the gate covers has changed"
+    exit 0
+fi
+
+echo "pre-push: type checking the project..."
+npx tsc --noEmit -p tsconfig.json
+
+# Changed files only, never the whole repo: the baseline predates these checks,
+# so a full lint fails on day one and the hook gets bypassed for ever after.
+echo "pre-push: linting changed files..."
+# shellcheck disable=SC2086
+./node_modules/.bin/eslint --no-warn-ignored $CHANGED
+
+echo "pre-push: quality gate on the branch..."
+node quality/gate.mjs --changed --profile ci
+
+echo "pre-push: clean"

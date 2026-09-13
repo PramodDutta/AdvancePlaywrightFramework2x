@@ -943,6 +943,11 @@ same material: seven steps, about thirty minutes, built for teaching it rather t
 One idea per step, one code block, one thing to try. Reach for the twelve-lesson version when you
 need the detail it leaves out.
 
+[`docs/lint-and-typecheck-tutorial.html`](docs/lint-and-typecheck-tutorial.html) comes before both
+of them. It assumes no ESLint knowledge: what a type check, a linter and a gate each catch (with the
+same spec passing one and failing another), how to add them, how rules and severities work, how to
+write a house rule with `no-restricted-syntax` and no plugin, and how to run the lot before a push.
+
 `exercises/` is the part you run. Four lessons have stubs that are checked against the real engine
 and real repository data; the other eight check the artifact the lesson adds to the repo.
 
@@ -971,7 +976,8 @@ already here; the four are stubs waiting for you. Nothing in that output is a fa
 │   ├── settings.json      # Hook wiring
 │   └── skills/            # 18 agent skills, read by Claude Code AND Copilot
 ├── .githooks/
-│   └── pre-commit         # Same gate for commits not made by Claude
+│   ├── pre-commit         # Gate + ESLint on staged files
+│   └── pre-push           # Typecheck + lint + gate across the branch
 ├── .github/
 │   ├── copilot-instructions.md  # Repo-wide rules for GitHub Copilot
 │   └── workflows/         # playwright.yml (tests) + quality-gate.yml (gates)
@@ -1003,7 +1009,9 @@ already here; the four are stubs waiting for you. Nothing in that output is a fa
 ├── docs/
 │   ├── assets/                  # Diagrams and report screenshots used by this README
 │   ├── QUALITY-GATES.md         # The four gates: design, calibration, adoption
-│   ├── quality-gates-tutorial.html  # Twelve-lesson study guide for the gates
+│   ├── lint-and-typecheck-tutorial.html # tsc, ESLint and rules, from scratch
+│   ├── quality-gates-tutorial.html      # Twelve-lesson study guide for the gates
+│   ├── quality-gates-tutorial-v2.html   # The same, cut to seven steps
 │   ├── Playwright-Worker.md     # Parallel workers: measured timings, RAM per worker
 │   ├── ai-factory.prompt.md     # Brief for adding the LLM agent layer
 │   └── postman_api_collection/  # Restful Booker collection, incl. PATCH/DELETE

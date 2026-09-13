@@ -8,6 +8,7 @@
     "typecheck": "tsc --noEmit -p tsconfig.json",
     "lint": "eslint src playwright.config.ts quality rules eslint.config.mjs",
     "lint:fix": "eslint --fix src playwright.config.ts quality rules eslint.config.mjs",
+    "lint:changed": "node quality/lint-changed.mjs",
     "gate": "node quality/gate.mjs --all --profile commit",
     "gate:staged": "node quality/gate.mjs --staged --profile commit",
     "gate:changed": "node quality/gate.mjs --changed --profile ci",
@@ -15,6 +16,7 @@
     "gate:rules": "node quality/gate.mjs --list-rules",
     "gate:install-hooks": "git config core.hooksPath .githooks && echo \"git hooks enabled from .githooks/\"",
     "verify": "npm run typecheck && npm run lint && npm run gate",
+    "verify:branch": "npm run typecheck && npm run lint:changed && npm run gate:changed",
     "exercises": "node exercises/check.mjs"
   },
   "keywords": [],

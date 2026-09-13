@@ -30,8 +30,10 @@ npm run gate -- --file <path>      # one file
 npm run gate:changed               # what this branch adds, with CI budgets
 npm run gate:audit                 # everything, fails on nothing
 npm run gate:rules                 # every rule and its severity
-npm run lint                       # ESLint
-npm run verify                     # typecheck + lint + gate
+npm run lint                       # ESLint, whole repo (does not pass: see the baseline below)
+npm run lint:changed               # ESLint over what this branch adds
+npm run verify                     # typecheck + lint + gate, whole repo
+npm run verify:branch              # typecheck + lint + gate, this branch only. This one must pass
 node quality/selftest.mjs          # proves the rules still fire
 ```
 
@@ -103,7 +105,8 @@ They fire in four places, all calling `node quality/gate.mjs`:
 | Prompt submitted | `.claude/hooks/inject-rules.mjs` | The 13 blocking rules enter context |
 | Before a Write | `.claude/hooks/guard-file-placement.mjs` | Denies a spec outside `src/tests/` |
 | After Write/Edit | `.claude/hooks/gate-on-edit.mjs` | `error` blocks the edit, `warn` is printed |
-| Before `git commit` | `.claude/hooks/gate-on-commit.mjs` | Gate + ESLint on staged files |
+| Before `git commit` | `.claude/hooks/gate-on-commit.mjs`, `.githooks/pre-commit` | Gate + ESLint on staged files |
+| Before `git push` | `.githooks/pre-push` | Typecheck, then lint and gate across the branch |
 | Pull request | `.github/workflows/quality-gate.yml` | Changed files, budgets, sticky comment |
 
 Severity decides consequence, not importance. `error` blocks; `warn` is a judgement call counted
@@ -121,7 +124,8 @@ The whole-repo baseline (7 error, 57 warn, 9 info from the gate; 13 error, 21 wa
 pre-existing. The PR gate runs on changed files only, so a change cannot add to it. Do not sweep
 unrelated files to drive the number down.
 
-Learning the system: `docs/quality-gates-tutorial.html` is a twelve-lesson guide that builds it from
+Learning the system: `docs/lint-and-typecheck-tutorial.html` covers tsc, ESLint and rules from
+scratch; `docs/quality-gates-tutorial.html` is a twelve-lesson guide that builds it from
 nothing and `docs/quality-gates-tutorial-v2.html` is the seven-step teaching cut of the same material, and `exercises/` is the runnable half (`npm run exercises`). Four lessons are stubs checked
 against the real engine; the other eight check the repo artifact. A clean clone reports 8 passing,
 4 to do, 0 failing. Do not "fix" the four to-dos: they are the exercises.

@@ -1,0 +1,551 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Lint Before You Push</title>
+<meta name="description" content="What a type check, a linter and a quality gate each catch, how to add them to a Playwright TypeScript project, how ESLint rules actually work, and how to run them before you push. By The Testing Academy.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#F7F9FC; --surface:#FFFFFF; --ink:#13294B; --body:#2A3A56; --muted:#5F7090; --line:#D9E1EC;
+  --green:#1E8A5A; --green-soft:#E4F4EB; --blue:#2A66D6; --blue-soft:#E7EFFC;
+  --amber:#D98E1F; --amber-soft:#FFF5E1; --red:#D64545; --red-soft:#FBE9E9;
+  --code-bg:#13294B; --code-fg:#E6EDF7; --kw:#8DE0B9; --str:#F8C977; --com:#8FA3C4; --num:#FFB39B;
+  --radius:10px;
+}
+*{box-sizing:border-box}
+html{scroll-behavior:smooth;scroll-padding-top:104px}
+@media (prefers-reduced-motion:reduce){html{scroll-behavior:auto}}
+body{margin:0;background:var(--bg);color:var(--body);font-family:"IBM Plex Sans",system-ui,-apple-system,sans-serif;font-size:17px;line-height:1.62;-webkit-font-smoothing:antialiased}
+a{color:var(--green)}
+a:focus-visible,button:focus-visible{outline:2px solid var(--amber);outline-offset:2px}
+h1,h2,h3{color:var(--ink);line-height:1.15;margin:0 0 .4em;letter-spacing:-.015em;text-wrap:balance}
+p{margin:0 0 1rem}
+img{max-width:100%}
+code,pre{font-family:"IBM Plex Mono",ui-monospace,Menlo,monospace}
+p>code,li>code,td>code,h2>code,.idea>code{background:#EAF0F7;color:var(--ink);padding:.1em .35em;border-radius:5px;font-size:.87em}
+pre code{background:none;padding:0;font-size:inherit;color:inherit}
+strong{color:var(--ink)}
+
+.topbar{position:sticky;top:0;z-index:20;background:rgba(255,255,255,.94);backdrop-filter:blur(8px);border-bottom:1px solid var(--line)}
+.topbar-in{max-width:900px;margin:0 auto;padding:11px 22px;display:flex;align-items:center;justify-content:space-between;gap:14px}
+.brand{display:flex;align-items:center;gap:9px;font-weight:700;color:var(--ink);text-decoration:none;font-size:1rem}
+.brand i{width:11px;height:11px;border-radius:3px;background:var(--green);display:inline-block;transform:rotate(45deg)}
+.topbar a.full{color:var(--muted);text-decoration:none;font-size:.88rem;white-space:nowrap}
+.topbar a.full:hover{color:var(--green)}
+
+.hero{background:var(--ink);color:#fff;padding:52px 22px 46px}
+.hero-in{max-width:900px;margin:0 auto}
+.kicker{color:#9BD9BC;font-weight:500;margin-bottom:10px;font-size:.95rem}
+.hero h1{color:#fff;font-size:clamp(2.1rem,5.4vw,3.3rem);font-weight:700;letter-spacing:-.03em;margin-bottom:14px}
+.hero p{font-size:1.12rem;max-width:56ch;color:#D6E0F0;margin-bottom:18px}
+.meta{list-style:none;padding:0;margin:0 0 18px;display:flex;flex-wrap:wrap;gap:9px}
+.meta li{border:1px solid rgba(255,255,255,.28);border-radius:999px;padding:5px 13px;font-size:.87rem;color:#E6EDF7}
+.byline{color:#9FB2CF;font-size:.92rem;margin:0}
+.byline a{color:#C6F0DB;text-decoration:none}
+
+.rail{background:var(--surface);border-bottom:1px solid var(--line);position:sticky;top:47px;z-index:15}
+.rail-in{max-width:900px;margin:0 auto;padding:9px 22px;display:flex;gap:6px;overflow-x:auto;scrollbar-width:thin}
+.rail a{flex:none;font-size:.79rem;color:var(--muted);text-decoration:none;border:1px solid var(--line);border-radius:999px;padding:4px 9px;white-space:nowrap}
+.rail a:hover{color:var(--ink);border-color:var(--muted)}
+.rail a.active{color:var(--green);border-color:var(--green);background:var(--green-soft);font-weight:600}
+.rail b{font-family:"IBM Plex Mono",monospace;font-weight:500;opacity:.75;margin-right:4px}
+
+main{max-width:900px;margin:0 auto;padding:44px 22px 70px}
+.step{padding-bottom:40px;margin-bottom:40px;border-bottom:1px solid var(--line)}
+.step:last-of-type{border-bottom:0;margin-bottom:0}
+.step-head{display:grid;grid-template-columns:62px minmax(0,1fr);gap:16px;align-items:start;margin-bottom:18px}
+.step-n{font-family:"IBM Plex Mono",monospace;font-size:2.6rem;line-height:.9;color:var(--green);font-weight:500;padding-top:2px}
+.step h2{font-size:1.6rem;font-weight:700}
+.idea{margin:0;color:var(--body);font-size:1.08rem}
+
+.code{position:relative;margin:18px 0 8px;background:var(--code-bg);border-radius:var(--radius);overflow:hidden}
+.code figcaption{font-family:"IBM Plex Mono",monospace;font-size:.76rem;color:#9FB2CF;padding:9px 15px;border-bottom:1px solid rgba(255,255,255,.08)}
+.code pre{margin:0;padding:15px 17px;overflow-x:auto;font-size:.845rem;line-height:1.56;color:var(--code-fg)}
+.code .copy{position:absolute;top:6px;right:9px;background:rgba(255,255,255,.1);color:#E6EDF7;border:1px solid rgba(255,255,255,.2);border-radius:6px;padding:3px 10px;font:inherit;font-size:.76rem;cursor:pointer}
+.code .copy:hover{background:rgba(255,255,255,.2)}
+.hk{color:var(--kw)} .hs{color:var(--str)} .hc{color:var(--com);font-style:italic} .hn{color:var(--num)}
+.out{margin:6px 0 18px;border:1px solid var(--line);border-radius:var(--radius);background:#fff;overflow:hidden}
+.out-bar{font-size:.76rem;font-weight:600;color:var(--muted);padding:6px 13px;border-bottom:1px solid var(--line);background:var(--bg)}
+.out pre{margin:0;padding:13px 15px;font-size:.83rem;line-height:1.52;color:var(--ink);white-space:pre-wrap;overflow-x:auto}
+
+.note{border-left:4px solid var(--green);background:var(--green-soft);padding:11px 15px;border-radius:0 8px 8px 0;margin:16px 0}
+.note.warn{border-color:var(--amber);background:var(--amber-soft)}
+.note.stop{border-color:var(--red);background:var(--red-soft)}
+.note p:last-child{margin:0}
+.try{background:var(--surface);border:1px dashed #C3D0E2;border-radius:8px;padding:10px 14px;margin:18px 0 0;font-size:.95rem}
+.try b{color:var(--green);margin-right:8px;font-weight:600}
+
+.tw{overflow-x:auto;margin:16px 0}
+table{width:100%;border-collapse:collapse;font-size:.92rem}
+th,td{text-align:left;padding:9px 12px;border-bottom:1px solid var(--line);vertical-align:top}
+th{color:var(--ink);font-weight:600;background:var(--bg)}
+td.n{font-variant-numeric:tabular-nums;text-align:right}
+.rules td:first-child{font-family:"IBM Plex Mono",monospace;font-size:.85rem;color:var(--ink);white-space:nowrap}
+.sev{display:inline-block;font-family:"IBM Plex Mono",monospace;font-size:.73rem;font-weight:600;padding:2px 7px;border-radius:5px}
+.sev-e{background:var(--red-soft);color:var(--red);border:1px solid #F0C6C6}
+.sev-w{background:var(--amber-soft);color:#A9690B;border:1px solid #F1D8A3}
+
+.gates{display:grid;grid-template-columns:repeat(2,1fr);gap:12px;margin:18px 0}
+.gate{border:1px solid var(--line);background:var(--surface);border-radius:var(--radius);padding:13px 15px}
+.gate h3{font-size:1rem;margin:0 0 3px;font-family:"IBM Plex Mono",monospace}
+.gate p{margin:0;font-size:.92rem;color:var(--muted)}
+.gate.g1{border-top:3px solid var(--amber)} .gate.g2{border-top:3px solid var(--green)}
+.gate.g3{border-top:3px solid var(--blue)} .gate.g4{border-top:3px solid #7A3FC4}
+
+.sketch{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);padding:16px 14px;margin:20px 0}
+.sketch svg{width:100%;height:auto;display:block;overflow:visible}
+.sketch figcaption{font-size:.85rem;color:var(--muted);margin-top:9px;text-align:center}
+.sk-ink{stroke:var(--ink);stroke-width:2.1;fill:none;stroke-linecap:round;stroke-linejoin:round}
+.sk-ink2{stroke:var(--ink);stroke-width:1.5;fill:none;stroke-linecap:round;opacity:.5}
+.sk-blue{stroke:var(--blue);stroke-width:2.4;fill:none;stroke-linecap:round;stroke-linejoin:round}
+.sk-green{stroke:var(--green);stroke-width:2.6;fill:none;stroke-linecap:round;stroke-linejoin:round}
+.sk-amber{stroke:var(--amber);stroke-width:2.4;fill:none;stroke-linecap:round;stroke-linejoin:round}
+.sk-red{stroke:var(--red);stroke-width:2.6;fill:none;stroke-linecap:round;stroke-linejoin:round}
+.sk-fill{fill:var(--amber-soft);stroke:none}
+.sk-txt{font-family:"IBM Plex Sans",system-ui,sans-serif;fill:var(--ink)}
+.sk-mono{font-family:"IBM Plex Mono",monospace;fill:var(--ink)}
+.sk-label{font-family:"IBM Plex Sans",system-ui,sans-serif;fill:var(--muted);letter-spacing:.08em}
+
+footer{background:var(--ink);color:#C6D2E6;padding:34px 22px}
+.foot-in{max-width:900px;margin:0 auto;display:flex;flex-wrap:wrap;justify-content:space-between;gap:14px;align-items:center}
+footer a{color:#9BD9BC;text-decoration:none}
+footer .brand{color:#fff}
+footer p{margin:0;font-size:.9rem}
+
+@media (max-width:700px){
+  .gates{grid-template-columns:1fr}
+  .step-head{grid-template-columns:44px minmax(0,1fr);gap:12px}
+  .step-n{font-size:2rem}
+  .rail{position:static}
+  .hero{padding:40px 22px 36px}
+}
+</style>
+</head>
+<body>
+
+<header class="topbar">
+  <div class="topbar-in">
+    <a class="brand" href="https://thetestingacademy.com"><i></i>The Testing Academy</a>
+    <a class="full" href="quality-gates-tutorial.html">Quality gates guide &rarr;</a>
+  </div>
+</header>
+
+<section class="hero">
+  <div class="hero-in">
+    <p class="kicker">Setup guide, start here</p>
+    <h1>Lint Before You Push</h1>
+    <p>What a type check, a linter and a quality gate each catch, how to add all three to a Playwright project, and how to make them run before your code leaves your machine.</p>
+    <ul class="meta">
+      <li>8 steps</li>
+      <li>about 40 minutes</li>
+      <li>no prior ESLint knowledge</li>
+      <li>TypeScript + Playwright</li>
+    </ul>
+    <p class="byline">By Pramod Dutta, founder of <a href="https://thetestingacademy.com">The Testing Academy</a></p>
+  </div>
+</section>
+
+<nav class="rail" aria-label="Steps">
+  <div class="rail-in">
+    <a href="#s1"><b>1</b>Three checks</a>
+    <a href="#s2"><b>2</b>How it works</a>
+    <a href="#s3"><b>3</b>Type check</a>
+    <a href="#s4"><b>4</b>Add ESLint</a>
+    <a href="#s5"><b>5</b>Rules</a>
+    <a href="#s6"><b>6</b>Test rules</a>
+    <a href="#s7"><b>7</b>Your own rule</a>
+    <a href="#s8"><b>8</b>Before push</a>
+  </div>
+</nav>
+
+<main>
+
+<section class="step" id="s1">
+<div class="step-head"><span class="step-n">1</span><div><h2>Three checks, three jobs</h2><p class="idea">They sound similar and they overlap almost not at all.</p></div></div>
+<div class="tw"><table>
+<thead><tr><th>Check</th><th>The question it asks</th><th>Command</th></tr></thead>
+<tbody>
+<tr><td><strong>Type check</strong></td><td>Do these values and calls actually fit together?</td><td><code>tsc --noEmit</code></td></tr>
+<tr><td><strong>Lint</strong></td><td>Is this code using the language and the library in a known-bad way?</td><td><code>eslint</code></td></tr>
+<tr><td><strong>Quality gate</strong></td><td>Does this fit the shape of <em>our</em> project?</td><td><code>node quality/gate.mjs</code></td></tr>
+</tbody></table></div>
+<p>That sounds abstract until you watch them miss each other. Here is one spec. The type checker finds two problems:</p>
+<figure class="code"><figcaption>src/tests/demo/demo.spec.ts</figcaption><pre><code data-lang="ts">import { test, expect } from &#x27;@fixtures/test-base&#x27;;
+
+test(&#x27;adds an item to the cart&#x27;, async ({ loginWithInventory, cartPage }) =&gt; {
+    await loginWithInventory.addToCart(42);
+    await cartPage.open();
+    await expect(cartPage.itemRow(&#x27;tta-bike-light&#x27;)).toBeVisible();
+});</code></pre></figure>
+<div class="out"><div class="out-bar">npx tsc --noEmit</div><pre>src/tests/demo/demo.spec.ts(4,40): error TS2345: Argument of type &#x27;number&#x27; is not assignable to parameter of type &#x27;string&#x27;.
+src/tests/demo/demo.spec.ts(6,27): error TS2339: Property &#x27;itemRow&#x27; does not exist on type &#x27;CartPage&#x27;.</pre></div>
+<div class="out"><div class="out-bar">npx eslint on the same file</div><pre>(no output)</pre></div>
+<p>ESLint has nothing to say, and it is not being lazy. It does not know what a <code>CartPage</code> is or what <code>addToCart</code> expects. Now the reverse. A different spec, all types correct:</p>
+<figure class="code"><figcaption>src/tests/demo/demo.spec.ts</figcaption><pre><code data-lang="ts">test(&#x27;adds an item to the cart&#x27;, async ({ loginWithInventory, cartPage, page }) =&gt; {
+    const unused = &#x27;never read&#x27;;
+    loginWithInventory.addToCart(&#x27;tta-bike-light&#x27;);
+    await page.waitForTimeout(3000);
+    await cartPage.open();
+    await page.click(&#x27;[data-test=&quot;checkout&quot;]&#x27;, { force: true });
+});</code></pre></figure>
+<div class="out"><div class="out-bar">npx tsc --noEmit</div><pre>(no output)</pre></div>
+<div class="out"><div class="out-bar">npx eslint</div><pre>4:11  error    &#x27;unused&#x27; is assigned a value but never used             @typescript-eslint/no-unused-vars
+5:5   error    Promises must be awaited, end with a call to .catch ...  @typescript-eslint/no-floating-promises
+6:11  error    Unexpected use of page.waitForTimeout()                  playwright/no-wait-for-timeout
+9:11  warning  Prefer locator methods instead of page methods           playwright/prefer-locator
+9:50  error    Unexpected use of { force: true } option                 playwright/no-force-option
+
+5 problems (4 errors, 1 warning)</pre></div>
+<div class="note stop"><p><strong>Line 5 is the one to fear.</strong> <code>addToCart</code> is never awaited, so the test does not wait for it. It finishes early, passes, and the click lands on the next test's page. A green suite hides that. Only the linter sees it, and only because it can read types.</p></div>
+<figure class="sketch">
+<svg viewBox="0 0 860 286" role="img" aria-label="One spec file checked by tsc, ESLint and the quality gate, each finding a different class of problem">
+<path class="sk-ink" d="M27.3,49.9 C82.8,52 153.2,48.3 207.2,49.8 C207.8,73.7 206.3,95.4 208.9,116.2 C153.2,116.1 82.8,119.2 31.6,113.8 C29.7,95.4 29,73.7 27.3,49.9 Z"/>
+<text class="sk-txt" x="50" y="82" font-size="13" font-weight="600">one spec file</text>
+<text class="sk-txt" x="50" y="102" font-size="12">that looks fine</text>
+<path class="sk-blue" d="M208,84 C239.8,67.6 286,55.7 322,54"/><path class="sk-blue" d="M310.4,59.9 L322,54 L309.9,49.3"/>
+<path class="sk-ink" d="M323.7,24.1 C386.2,21 471.8,21.4 539.2,24.3 C537.8,45 537.2,66 538.8,81.6 C471.8,82.1 386.2,81.8 322,81.7 C320,66 324.6,45 323.7,24.1 Z"/>
+<text class="sk-mono" x="344" y="50" font-size="13">tsc --noEmit</text>
+<text class="sk-txt" x="344" y="70" font-size="12">wrong types, methods</text>
+<path class="sk-red" d="M556,42 l16,16 M572,42 l-16,16"/>
+<path class="sk-blue" d="M208,84 C244.2,102 288.1,125.3 322,144"/><path class="sk-blue" d="M309,142.9 L322,144 L314.2,133.6"/>
+<path class="sk-ink" d="M321.2,116.6 C386.2,116 471.8,115.4 535.3,112.1 C533.8,135 534.3,156 538,175.7 C471.8,174.2 386.2,175.7 323.3,170.9 C320.1,156 321.7,135 321.2,116.6 Z"/>
+<text class="sk-mono" x="344" y="140" font-size="13">eslint</text>
+<text class="sk-txt" x="344" y="160" font-size="12">missing await, hard wait</text>
+<path class="sk-red" d="M556,132 l16,16 M572,132 l-16,16"/>
+<path class="sk-blue" d="M208,84 C236.1,132 280.4,193.5 322,234"/><path class="sk-blue" d="M309.8,229.5 L322,234 L317.2,221.9"/>
+<path class="sk-ink" d="M320,206 C386.2,208.4 471.8,208 535.2,206.2 C534.3,225 532.4,246 537.9,264.5 C471.8,264.1 386.2,265.6 322.4,261.1 C324.4,246 318.4,225 320,206 Z"/>
+<text class="sk-mono" x="344" y="230" font-size="13">quality gate</text>
+<text class="sk-txt" x="344" y="250" font-size="12">no assertion, no fixture</text>
+<path class="sk-red" d="M556,222 l16,16 M572,222 l-16,16"/>
+<text class="sk-txt" x="600" y="128" font-size="14" font-weight="600">three tools.</text>
+<text class="sk-txt" x="600" y="150" font-size="14">almost no overlap.</text>
+<text class="sk-txt" x="600" y="178" font-size="12">drop one and nothing</text>
+<text class="sk-txt" x="600" y="196" font-size="12">else covers it.</text>
+<path class="sk-amber" d="M301,143.2 C298.6,98 493,94 557,132.2 C562,171.6 429,193 333,178.5 C295,162.4 297,130.2 352.2,118.7"/>
+</svg>
+<figcaption>Each tool catches a class the others cannot see.</figcaption>
+</figure>
+<p class="try"><b>Try it</b> Run <code>npx tsc --noEmit</code> on your project right now. Whatever it prints is code that is already wrong.</p>
+</section>
+<section class="step" id="s2">
+<div class="step-head"><span class="step-n">2</span><div><h2>What a linter actually does</h2><p class="idea">It is less magic than it looks: parse, walk, report.</p></div></div>
+<p>ESLint reads your file and turns it into a tree. <code>await page.click()</code> becomes an <em>AwaitExpression</em> containing a <em>CallExpression</em> whose callee is a <em>MemberExpression</em>. Each rule is a small program that says "when you walk past a node shaped like <em>this</em>, report it".</p>
+<p>That is the whole idea. Everything else is configuration.</p>
+<div class="tw"><table>
+<thead><tr><th>Term</th><th>What it means in practice</th></tr></thead>
+<tbody>
+<tr><td><strong>rule</strong></td><td>one check, with a name like <code>no-unused-vars</code></td></tr>
+<tr><td><strong>severity</strong></td><td><code>"off"</code>, <code>"warn"</code> (prints, exit 0), <code>"error"</code> (prints, exit 1)</td></tr>
+<tr><td><strong>plugin</strong></td><td>a package of extra rules, e.g. <code>eslint-plugin-playwright</code></td></tr>
+<tr><td><strong>config</strong></td><td>which rules run, at what severity, over which files</td></tr>
+<tr><td><strong>fixable</strong></td><td>a rule that can rewrite the code itself, with <code>--fix</code></td></tr>
+<tr><td><strong>type-aware</strong></td><td>a rule that asks the TypeScript compiler about types. Slower, and much smarter</td></tr>
+</tbody></table></div>
+<p>Only <code>error</code> fails a build. A warning is a note that prints and exits 0, which makes it the right severity for "we would like to, eventually".</p>
+<div class="out"><div class="out-bar">a real run, fixable problems</div><pre>--- before ---
+4 problems (1 error, 3 warnings)
+  1 error and 3 warnings potentially fixable with the `--fix` option.
+
+--- after npx eslint --fix ---
+(no output)</pre></div>
+<div class="note"><p><strong>Run <code>--fix</code> first, always.</strong> Formatting, spacing and import order are mechanical. Spend your attention on what is left after the machine has taken its share.</p></div>
+<p class="try"><b>Try it</b> Run <code>npx eslint src --fix</code> on a scratch branch and look at the diff. Everything in it is work you never have to do by hand again.</p>
+</section>
+<section class="step" id="s3">
+<div class="step-head"><span class="step-n">3</span><div><h2>Add the type check</h2><p class="idea">Five minutes, one flag, and it is the cheapest of the three.</p></div></div>
+<p>Playwright compiles TypeScript on the fly, so a suite can run for months with type errors in it. <code>tsc --noEmit</code> is how you find out. <code>--noEmit</code> means "check, but write no JavaScript": you only want the errors.</p>
+<figure class="code"><figcaption>package.json</figcaption><pre><code data-lang="text">&quot;scripts&quot;: {
+    &quot;typecheck&quot;: &quot;tsc --noEmit -p tsconfig.json&quot;
+}</code></pre></figure>
+<p>Two settings in <code>tsconfig.json</code> do most of the work:</p>
+<figure class="code"><figcaption>tsconfig.json</figcaption><pre><code data-lang="text">{
+  &quot;compilerOptions&quot;: {
+    &quot;strict&quot;: true,              // the one that matters. Turns on ~8 checks at once,
+                                 // including null and undefined handling
+    &quot;noEmit&quot;: true,
+    &quot;baseUrl&quot;: &quot;.&quot;,
+    &quot;paths&quot;: {                   // so specs import @pages/LoginPage, not ../../../pages/LoginPage
+      &quot;@pages/*&quot;: [&quot;src/pages/*&quot;],
+      &quot;@fixtures/*&quot;: [&quot;src/fixtures/*&quot;],
+      &quot;@utils/*&quot;: [&quot;src/utils/*&quot;]
+    }
+  },
+  &quot;include&quot;: [&quot;src&quot;, &quot;playwright.config.ts&quot;]
+}</code></pre></figure>
+<div class="note warn"><p><strong>Pin your TypeScript version to the major your config was written for.</strong> Installing <code>typescript</code> unpinned here pulled in 6.x and broke <code>tsc --noEmit</code> on two options 5.x accepts happily, <code>moduleResolution: node10</code> and <code>baseUrl</code>. Nothing in the project had changed. Use <code>"typescript": "^5.9"</code> and upgrade deliberately.</p></div>
+<p class="try"><b>Try it</b> Add the script, run it, and fix whatever it finds before going further. Step 4 is easier on a project that type checks.</p>
+</section>
+<section class="step" id="s4">
+<div class="step-head"><span class="step-n">4</span><div><h2>Add ESLint</h2><p class="idea">One config file, four blocks, each scoped to the files it judges.</p></div></div>
+<figure class="code"><figcaption>install</figcaption><pre><code data-lang="sh">npm install --save-dev eslint@^9 @eslint/js@^9 typescript-eslint@^8 \
+  eslint-plugin-playwright@^2 globals</code></pre></figure>
+<p>ESLint 9 uses <strong>flat config</strong>: a file called <code>eslint.config.mjs</code> exporting an array. Each entry says which files it applies to and what rules they get. Later entries win. That is the entire mental model.</p>
+<figure class="code"><figcaption>eslint.config.mjs</figcaption><pre><code data-lang="ts">import js from &#x27;@eslint/js&#x27;;
+import tseslint from &#x27;typescript-eslint&#x27;;
+import playwright from &#x27;eslint-plugin-playwright&#x27;;
+import globals from &#x27;globals&#x27;;
+
+export default tseslint.config(
+  // 1. What never gets linted.
+  { ignores: [&#x27;node_modules/**&#x27;, &#x27;playwright-report/**&#x27;, &#x27;test-results/**&#x27;] },
+
+  // 2. Every TypeScript file.
+  {
+    files: [&#x27;**/*.ts&#x27;],
+    extends: [js.configs.recommended, ...tseslint.configs.recommendedTypeChecked],
+    languageOptions: {
+      // This is what makes type-aware rules possible. It hands the parser
+      // your real tsconfig.json.
+      parserOptions: { projectService: true, tsconfigRootDir: import.meta.dirname },
+      globals: globals.node,
+    },
+    rules: {
+      &#x27;@typescript-eslint/no-floating-promises&#x27;: &#x27;error&#x27;,
+      &#x27;@typescript-eslint/await-thenable&#x27;: &#x27;error&#x27;,
+      &#x27;@typescript-eslint/no-explicit-any&#x27;: &#x27;warn&#x27;,
+      &#x27;no-console&#x27;: &#x27;error&#x27;,
+      eqeqeq: [&#x27;error&#x27;, &#x27;smart&#x27;],
+    },
+  },
+
+  // 3. Specs only. Page objects are not specs and should not be judged as ones.
+  {
+    files: [&#x27;src/tests/**/*.ts&#x27;],
+    extends: [playwright.configs[&#x27;flat/recommended&#x27;]],
+  },
+
+  // 4. The exceptions, last, so they win.
+  {
+    files: [&#x27;src/utils/CustomReporter.ts&#x27;],
+    rules: { &#x27;no-console&#x27;: &#x27;off&#x27; },   // its job is writing to stdout
+  },
+);</code></pre></figure>
+<div class="note"><p><strong><code>projectService: true</code> is the line that pays for everything.</strong> Without it ESLint only sees text, and <code>no-floating-promises</code> cannot exist. With it, a rule can ask "is this expression a Promise?" It costs about two seconds of start-up, which step 8 spends carefully.</p></div>
+<figure class="code"><figcaption>package.json</figcaption><pre><code data-lang="text">&quot;scripts&quot;: {
+    &quot;lint&quot;: &quot;eslint src playwright.config.ts&quot;,
+    &quot;lint:fix&quot;: &quot;eslint --fix src playwright.config.ts&quot;
+}</code></pre></figure>
+<p class="try"><b>Try it</b> Run <code>npm run lint</code>. Write down the number. On an existing project it will not be zero, and step 8 explains why that is fine.</p>
+</section>
+<section class="step" id="s5">
+<div class="step-head"><span class="step-n">5</span><div><h2>Rules: on, off, and down</h2><p class="idea">Four ways to change a rule, in order of how much you should reach for them.</p></div></div>
+<h3 style="font-size:1.12rem;margin-top:26px">1. Set its severity</h3>
+<figure class="code"><figcaption>eslint.config.mjs</figcaption><pre><code data-lang="ts">rules: {
+  &#x27;no-console&#x27;: &#x27;error&#x27;,                    // fails the build
+  &#x27;@typescript-eslint/no-explicit-any&#x27;: &#x27;warn&#x27;,  // prints, exits 0
+  &#x27;playwright/no-skipped-test&#x27;: &#x27;off&#x27;,      // never runs
+  &#x27;max-params&#x27;: [&#x27;warn&#x27;, 4],                // some rules take options
+}</code></pre></figure>
+<h3 style="font-size:1.12rem;margin-top:26px">2. Scope it to a folder</h3>
+<p>The honest fix when a rule is right almost everywhere. Add a later block for the exception and say why in a comment:</p>
+<figure class="code"><figcaption>eslint.config.mjs</figcaption><pre><code data-lang="ts">// The AI demo specs exist to misbehave: one is deterministically flaky by
+// design, another branches on whether a locator died and asserts inside the
+// branch. Turning these off here is a statement about that directory, not a
+// retreat from the rules.
+{
+  files: [&#x27;src/tests/aiTest/**/*.ts&#x27;],
+  rules: {
+    &#x27;playwright/no-conditional-in-test&#x27;: &#x27;off&#x27;,
+    &#x27;playwright/no-conditional-expect&#x27;: &#x27;off&#x27;,
+  },
+},</code></pre></figure>
+<h3 style="font-size:1.12rem;margin-top:26px">3. Disable one line, with a reason</h3>
+<figure class="code"><figcaption>in the source</figcaption><pre><code data-lang="ts">// eslint-disable-next-line @typescript-eslint/no-explicit-any -- the API is untyped upstream
+const payload = raw as any;</code></pre></figure>
+<p>The text after <code>--</code> is the description, and ESLint keeps it. A bare <code>eslint-disable-next-line</code> is a silent opt-out, which is the same problem as a waiver with no reason. You can even require the description:</p>
+<figure class="code"><figcaption>eslint.config.mjs</figcaption><pre><code data-lang="ts">&#x27;@eslint-community/eslint-comments/require-description&#x27;: &#x27;error&#x27;,   // needs the plugin</code></pre></figure>
+<h3 style="font-size:1.12rem;margin-top:26px">4. Disable a whole file</h3>
+<p>Almost never. If a file needs this, it usually needs a scoped block in the config instead, where the reason is visible to everyone rather than buried at the top of one file.</p>
+<div class="note warn"><p><strong>Reach downward, not sideways.</strong> Severity first, then scope, then one line with a reason. Every step down the list hides the exception from more people.</p></div>
+<p class="try"><b>Try it</b> Find the noisiest rule in your run. Decide, out loud, whether it is wrong everywhere (severity), wrong in one folder (scope), or wrong once (a line comment).</p>
+</section>
+<section class="step" id="s6">
+<div class="step-head"><span class="step-n">6</span><div><h2>The rules that matter for test code</h2><p class="idea">A general linter does not know what a flaky test looks like. This plugin does.</p></div></div>
+<div class="tw"><table class="rules">
+<thead><tr><th>Rule</th><th>What it prevents</th></tr></thead>
+<tbody>
+<tr><td>@typescript-eslint/no-floating-promises</td><td>A missing <code>await</code>. The test finishes early, passes, and the action lands on the next test's page.</td></tr>
+<tr><td>playwright/no-wait-for-timeout</td><td><code>waitForTimeout(3000)</code>. Slow when it works, flaky when the app is slower than your guess.</td></tr>
+<tr><td>playwright/no-force-option</td><td><code>{ force: true }</code> clicks an element the user could not have clicked. The bug ships.</td></tr>
+<tr><td>playwright/prefer-web-first-assertions</td><td><code>expect(await el.textContent())</code>, which reads once instead of retrying.</td></tr>
+<tr><td>playwright/no-conditional-in-test</td><td>An <code>if</code> in a test: half the time it checks nothing and still reports green.</td></tr>
+<tr><td>playwright/no-focused-test</td><td><code>test.only</code> reaching CI, where it silently skips the rest of the file.</td></tr>
+<tr><td>playwright/no-element-handle</td><td><code>$()</code> handles, which go stale on re-render. Locators re-resolve.</td></tr>
+<tr><td>playwright/valid-expect</td><td><code>expect(locator)</code> with no matcher. Asserts nothing at all.</td></tr>
+</tbody></table></div>
+<p>Two before-and-afters worth internalising:</p>
+<figure class="code"><figcaption>before, and after</figcaption><pre><code data-lang="ts">// flaky: waits a fixed 3s, then reads once
+await page.waitForTimeout(3000);
+expect(await page.locator(&#x27;.badge&#x27;).textContent()).toBe(&#x27;1&#x27;);
+
+// stable: retries until it matches or the timeout expires
+await expect(page.locator(&#x27;.badge&#x27;)).toHaveText(&#x27;1&#x27;);</code></pre></figure>
+<div class="note"><p><strong>Scope the plugin to your spec folder.</strong> A page object legitimately holds locators and helper methods; judged as a spec it fails rules that were never about it.</p></div>
+<p class="try"><b>Try it</b> Turn on the eight rules above, run <code>npm run lint</code>, and read the hits in your oldest spec file. That is your flakiness backlog, itemised.</p>
+</section>
+<section class="step" id="s7">
+<div class="step-head"><span class="step-n">7</span><div><h2>Write your own rule without writing a plugin</h2><p class="idea">Most team conventions are one selector away.</p></div></div>
+<p>You do not need to publish a package to enforce a house rule. <code>no-restricted-syntax</code> takes an AST selector, which reads like CSS for code:</p>
+<figure class="code"><figcaption>eslint.config.mjs</figcaption><pre><code data-lang="ts">&#x27;no-restricted-syntax&#x27;: [&#x27;error&#x27;,
+  {
+    selector: &quot;CallExpression[callee.object.name=&#x27;test&#x27;][callee.property.name=&#x27;only&#x27;]&quot;,
+    message: &#x27;test.only silently skips the rest of the file. Delete it before pushing.&#x27;,
+  },
+  {
+    selector: &quot;NewExpression[callee.name=/Page$/]&quot;,
+    message: &#x27;Take the page object from a fixture instead of constructing it in a spec.&#x27;,
+  },
+],</code></pre></figure>
+<div class="out"><div class="out-bar">npx eslint on a spec containing test.only</div><pre>3:1  error  test.only silently skips the rest of the file. Delete it before pushing.  no-restricted-syntax</pre></div>
+<p>To find the selector for something, paste the code into <a href="https://astexplorer.net">astexplorer.net</a>, pick the TypeScript ESLint parser, and click the node you want. The panel names its type and properties.</p>
+<div class="note"><p><strong>Where this runs out.</strong> A selector matches shapes, not meaning. "Does this test assert anything?", "does this comment add anything?", "does anything import this?" need a body, a word count, or the whole repo. That is the point where a separate rule engine earns its place, which is what the <a href="quality-gates-tutorial.html">quality gates guide</a> builds.</p></div>
+<p class="try"><b>Try it</b> Write one selector rule for the mistake your team corrects most often in review. You now never have to write that comment again.</p>
+</section>
+<section class="step" id="s8">
+<div class="step-head"><span class="step-n">8</span><div><h2>Run it before you push</h2><p class="idea">A check nobody runs is a check you do not have.</p></div></div>
+<p>Four places to run these, and they are not interchangeable. Cost decides which goes where.</p>
+<div class="tw"><table>
+<thead><tr><th>Where</th><th>Runs</th><th>Scope</th><th>Cost</th></tr></thead>
+<tbody>
+<tr><td>On save, in your editor</td><td>ESLint</td><td>the open file</td><td>instant</td></tr>
+<tr><td><code>pre-commit</code></td><td>lint + gate</td><td>staged files</td><td>~3s, many times a day</td></tr>
+<tr><td><code>pre-push</code></td><td>typecheck + lint + gate</td><td>the whole branch</td><td>~8s, a few times a day</td></tr>
+<tr><td>CI, on the pull request</td><td>everything</td><td>the diff against main</td><td>~1min, once per push</td></tr>
+</tbody></table></div>
+<p>A type check is a whole-project operation, so it belongs at push rather than in front of every commit. Nobody accepts an eight-second pause fifty times a day, and a hook people bypass is worse than no hook.</p>
+<h3 style="font-size:1.12rem;margin-top:26px">Wire the hooks, without a dependency</h3>
+<p>Git looks for hooks in <code>.git/hooks</code>, which is not committed. One config setting points it at a folder that is:</p>
+<figure class="code"><figcaption>once per clone</figcaption><pre><code data-lang="sh">git config core.hooksPath .githooks</code></pre></figure>
+<figure class="code"><figcaption>.githooks/pre-push</figcaption><pre><code data-lang="sh">#!/bin/sh
+set -e
+
+BASE=&quot;${GATE_BASE:-origin/main}&quot;
+MERGE_BASE=$(git merge-base &quot;$BASE&quot; HEAD)
+CHANGED=$(git diff --name-only --diff-filter=ACMR &quot;$MERGE_BASE&quot; HEAD \
+          | grep -E &#x27;^(src/.*\.ts|playwright\.config\.ts)$&#x27; || true)
+
+if [ -z &quot;$CHANGED&quot; ]; then
+    echo &quot;pre-push: nothing the gate covers has changed&quot;
+    exit 0
+fi
+
+echo &quot;pre-push: type checking the project...&quot;
+npx tsc --noEmit -p tsconfig.json
+
+# Changed files only, never the whole repo: the baseline predates these
+# checks, so a full lint fails on day one and the hook gets bypassed for ever.
+echo &quot;pre-push: linting changed files...&quot;
+./node_modules/.bin/eslint --no-warn-ignored $CHANGED
+
+echo &quot;pre-push: quality gate on the branch...&quot;
+node quality/gate.mjs --changed --profile ci
+
+echo &quot;pre-push: clean&quot;</code></pre></figure>
+<div class="out"><div class="out-bar">git push, on a branch that is in good shape</div><pre>pre-push: type checking the project...
+pre-push: linting changed files...
+lint: 3 changed file(s) clean
+pre-push: quality gate on the branch...
+Quality Gate - ci profile - 3 changed files checked - no findings
+pre-push: clean</pre></div>
+<h3 style="font-size:1.12rem;margin-top:26px">The mistake that kills hooks</h3>
+<div class="note stop"><p><strong>Never lint the whole repo in a hook on an existing project.</strong> Turn these on over a suite that predates them and the first run is red through no fault of the person pushing. They add <code>--no-verify</code> once, it becomes muscle memory, and the hook is now decoration. Scope every hook to the diff and let the baseline be paid down deliberately.</p></div>
+<p>Here that baseline is 13 ESLint errors and 21 warnings, all pre-existing, written down in the README so nobody discovers it by surprise. A pull request cannot add to it, which is the property that actually matters.</p>
+<h3 style="font-size:1.12rem;margin-top:26px">The scripts</h3>
+<figure class="code"><figcaption>package.json</figcaption><pre><code data-lang="text">&quot;scripts&quot;: {
+    &quot;typecheck&quot;:     &quot;tsc --noEmit -p tsconfig.json&quot;,
+    &quot;lint&quot;:          &quot;eslint src playwright.config.ts&quot;,
+    &quot;lint:fix&quot;:      &quot;eslint --fix src playwright.config.ts&quot;,
+    &quot;lint:changed&quot;:  &quot;node quality/lint-changed.mjs&quot;,
+    &quot;verify&quot;:        &quot;npm run typecheck &amp;&amp; npm run lint &amp;&amp; npm run gate&quot;,
+    &quot;verify:branch&quot;: &quot;npm run typecheck &amp;&amp; npm run lint:changed &amp;&amp; npm run gate:changed&quot;
+}</code></pre></figure>
+<p><code>verify</code> is the audit and it does not pass today. <code>verify:branch</code> is the gate and it must. Keeping both, and being honest about which is which, is what stops the audit number from being quietly deleted.</p>
+<div class="note"><p><strong>And always leave the escape hatch.</strong> <code>git push --no-verify</code> skips the hook. Someone with a real reason will find a way around it regardless, and a bypass that is visible in the command they typed is better than one that is not.</p></div>
+<p class="try"><b>Try it</b> Enable the hooks, then push a branch with a missing <code>await</code> in it. The push should stop before the network call.</p>
+</section>
+<section class="step" id="next">
+<div class="step-head"><span class="step-n">&rarr;</span><div><h2>What this does not cover</h2><p class="idea">The checks that need to know your project, not just your language.</p></div></div>
+<p>Everything above is generic: any TypeScript project can use it unchanged. What none of it can answer is whether a test asserts anything, whether a comment adds anything, whether a helper has more than one caller, or whether a spec goes through your fixture layer. Those need a tool that knows your repository.</p>
+<div class="tw"><table>
+<thead><tr><th>Page</th><th>What it is</th></tr></thead>
+<tbody>
+<tr><td><a href="quality-gates-tutorial-v2.html"><strong>Quality Gates in Seven Steps</strong></a></td><td>the short version, about thirty minutes</td></tr>
+<tr><td><a href="quality-gates-tutorial.html"><strong>Quality Gates for Playwright</strong></a></td><td>the full twelve lessons, with the exercises</td></tr>
+</tbody></table></div>
+<p>Start with the seven-step version if you want the idea, the twelve-lesson one if you are going to build it.</p>
+</section>
+
+
+</main>
+
+<footer>
+  <div class="foot-in">
+    <div>
+      <a class="brand" href="https://thetestingacademy.com"><i></i>The Testing Academy</a>
+      <p>Lint Before You Push, a setup guide by Pramod Dutta.</p>
+    </div>
+    <p><a href="https://thetestingacademy.com">thetestingacademy.com</a> &nbsp; <a href="https://www.youtube.com/@TheTestingAcademy">YouTube @TheTestingAcademy</a> &nbsp; <a href="https://sdet.live/ai-course">AI course: sdet.live/ai-course</a></p>
+  </div>
+</footer>
+
+<script>
+(function () {
+  var esc = function (s) { return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;'); };
+  var TS = /(`(?:\\.|[^`\\])*`|"(?:\\.|[^"\\\n])*"|'(?:\\.|[^'\\\n])*'|\/\/[^\n]*|\/\*[\s\S]*?\*\/|\b(?:import|from|export|const|let|var|function|return|if|else|for|while|of|in|new|async|await|try|catch|finally|class|interface|type|typeof|as|null|undefined|true|false|void|extends|implements)\b|\b\d+(?:\.\d+)?\b)/g;
+  var SH = /(#[^\n]*)/g;
+  function paint(code) {
+    var lang = code.getAttribute('data-lang') || 'ts';
+    if (lang === 'text') return;
+    var re = lang === 'sh' ? SH : TS;
+    var src = code.textContent, out = '', last = 0, m;
+    re.lastIndex = 0;
+    while ((m = re.exec(src))) {
+      out += esc(src.slice(last, m.index));
+      var t = m[0], cls;
+      if (t.charAt(0) === '#' || t.slice(0, 2) === '//' || t.slice(0, 2) === '/*') cls = 'hc';
+      else if (/^["'`]/.test(t)) cls = 'hs';
+      else if (/^\d/.test(t)) cls = 'hn';
+      else cls = 'hk';
+      out += '<span class="' + cls + '">' + esc(t) + '</span>';
+      last = m.index + t.length;
+    }
+    out += esc(src.slice(last));
+    code.innerHTML = out;
+  }
+  Array.prototype.forEach.call(document.querySelectorAll('pre code'), paint);
+
+  Array.prototype.forEach.call(document.querySelectorAll('.code'), function (box) {
+    var btn = document.createElement('button');
+    btn.className = 'copy'; btn.type = 'button'; btn.textContent = 'Copy';
+    btn.addEventListener('click', function () {
+      var text = box.querySelector('code').textContent;
+      var done = function () { btn.textContent = 'Copied'; setTimeout(function () { btn.textContent = 'Copy'; }, 1500); };
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(text).then(done, function () { done(); });
+      } else { done(); }
+    });
+    box.appendChild(btn);
+  });
+
+  var links = Array.prototype.slice.call(document.querySelectorAll('.rail a'));
+  var byId = {};
+  links.forEach(function (a) { byId[a.getAttribute('href').slice(1)] = a; });
+  if ('IntersectionObserver' in window) {
+    var io = new IntersectionObserver(function (entries) {
+      entries.forEach(function (e) {
+        if (e.isIntersecting) {
+          links.forEach(function (a) { a.classList.remove('active'); });
+          var a = byId[e.target.id]; if (a) a.classList.add('active');
+        }
+      });
+    }, { rootMargin: '-15% 0px -75% 0px' });
+    Array.prototype.forEach.call(document.querySelectorAll('main section[id]'), function (s) { io.observe(s); });
+  }
+})();
+</script>
+</body>
+</html>
