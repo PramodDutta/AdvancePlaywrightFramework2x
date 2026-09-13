@@ -121,6 +121,11 @@ The whole-repo baseline (7 error, 57 warn, 9 info from the gate; 13 error, 21 wa
 pre-existing. The PR gate runs on changed files only, so a change cannot add to it. Do not sweep
 unrelated files to drive the number down.
 
+Learning the system: `docs/quality-gates-tutorial.html` is a twelve-lesson guide that builds it from
+nothing, and `exercises/` is the runnable half (`npm run exercises`). Four lessons are stubs checked
+against the real engine; the other eight check the repo artifact. A clean clone reports 8 passing,
+4 to do, 0 failing. Do not "fix" the four to-dos: they are the exercises.
+
 Adding a rule: `.claude/skills/quality-rule-author/SKILL.md`. Every new rule needs an expectation in
 `quality/selftest.mjs` and code that trips it in the slop fixture. The clean fixture must stay clean.
 

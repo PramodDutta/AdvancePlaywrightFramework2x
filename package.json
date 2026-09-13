@@ -14,7 +14,8 @@
     "gate:audit": "node quality/gate.mjs --all --profile audit",
     "gate:rules": "node quality/gate.mjs --list-rules",
     "gate:install-hooks": "git config core.hooksPath .githooks && echo \"git hooks enabled from .githooks/\"",
-    "verify": "npm run typecheck && npm run lint && npm run gate"
+    "verify": "npm run typecheck && npm run lint && npm run gate",
+    "exercises": "node exercises/check.mjs"
   },
   "keywords": [],
   "author": "",

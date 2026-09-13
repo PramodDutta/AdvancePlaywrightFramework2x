@@ -1,0 +1,1480 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Quality Gates for Playwright</title>
+<meta name="description" content="A hands-on study guide for SDETs: build a zero-dependency rule engine that catches what tsc, ESLint and a green suite all miss. Twelve lessons, each adding one real file to a Playwright framework. By The Testing Academy.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:ital,wght@0,400;0,500;0,600;1,400&family=IBM+Plex+Sans:ital,wght@0,400;0,500;0,600;0,700;1,400&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#F7F9FC; --surface:#FFFFFF; --ink:#13294B; --body:#2A3A56; --muted:#5F7090; --line:#D9E1EC;
+  --green:#1E8A5A; --green-soft:#E4F4EB; --blue:#2A66D6; --blue-soft:#E7EFFC; --purple:#7A3FC4; --purple-soft:#F0E8FA;
+  --amber:#D98E1F; --amber-soft:#FFF5E1; --red:#D64545; --red-soft:#FBE9E9;
+  --code-bg:#13294B; --code-fg:#E6EDF7; --kw:#8DE0B9; --str:#F8C977; --com:#8FA3C4; --dec:#CDB4FF; --num:#FFB39B;
+  --radius:10px;
+}
+*{box-sizing:border-box}
+html{scroll-behavior:smooth;scroll-padding-top:84px}
+@media (prefers-reduced-motion:reduce){html{scroll-behavior:auto}}
+body{margin:0;background:var(--bg);color:var(--body);font-family:"IBM Plex Sans",system-ui,-apple-system,"Segoe UI",sans-serif;font-size:16.5px;line-height:1.6;-webkit-font-smoothing:antialiased}
+a{color:var(--green)}
+a:focus-visible,button:focus-visible{outline:2px solid var(--amber);outline-offset:2px}
+h1,h2,h3,h4{color:var(--ink);line-height:1.15;margin:0 0 .5em;letter-spacing:-.01em;text-wrap:balance}
+h2{font-size:1.9rem;font-weight:700}
+h3{font-size:1.2rem;font-weight:600;margin-top:2rem}
+h4{font-size:.95rem;font-weight:600;margin:1.2rem 0 .4rem}
+p{margin:0 0 1rem}
+ul,ol{margin:0 0 1rem}
+code,pre,kbd{font-family:"IBM Plex Mono",ui-monospace,SFMono-Regular,Menlo,monospace}
+p > code,li > code,td > code,h3 > code,h4 > code,span > code{background:#EAF0F7;color:var(--ink);padding:.1em .35em;border-radius:5px;font-size:.88em}
+pre code{background:none;padding:0;font-size:inherit;color:inherit}
+strong{color:var(--ink)}
+img{max-width:100%}
+
+/* top bar */
+.topbar{position:sticky;top:0;z-index:20;background:rgba(255,255,255,.94);backdrop-filter:blur(8px);border-bottom:1px solid var(--line)}
+.topbar-in{max-width:1200px;margin:0 auto;padding:12px 24px;display:flex;align-items:center;justify-content:space-between;gap:16px}
+.brand{display:flex;align-items:center;gap:10px;font-weight:700;color:var(--ink);text-decoration:none;font-size:1.05rem}
+.brand i{width:12px;height:12px;border-radius:3px;background:var(--green);display:inline-block;transform:rotate(45deg)}
+.links{display:flex;gap:18px;font-size:.92rem}
+.links a{color:var(--muted);text-decoration:none}
+.links a:hover{color:var(--green)}
+
+/* hero */
+.hero{background:var(--ink);color:#fff;padding:64px 24px}
+.hero-in{max-width:1200px;margin:0 auto}
+.hero-kicker{color:#9BD9BC;font-weight:500;margin-bottom:12px}
+.hero h1{color:#fff;font-size:clamp(2.4rem,6vw,4.2rem);font-weight:700;letter-spacing:-.03em;margin-bottom:16px}
+.lede{font-size:1.2rem;max-width:640px;color:#D6E0F0;margin-bottom:24px}
+.meta{list-style:none;padding:0;margin:0 0 22px;display:flex;flex-wrap:wrap;gap:10px}
+.meta li{border:1px solid rgba(255,255,255,.28);border-radius:999px;padding:6px 14px;font-size:.9rem;color:#E6EDF7}
+.byline{color:#9FB2CF;font-size:.95rem;margin:0}
+.byline a{color:#C6F0DB;text-decoration:none}
+
+.think{max-width:1200px;margin:-30px auto 0;padding:0 24px;position:relative}
+.think-in{background:#fff;border:1px solid var(--line);border-radius:12px;padding:18px 22px;display:grid;grid-template-columns:auto 1fr 1fr 1fr;gap:18px;align-items:start;box-shadow:0 10px 30px rgba(19,41,75,.08)}
+.think-label{font-weight:600;color:var(--ink);white-space:nowrap}
+.think-in b{display:block;font-size:1.02rem}
+.think-in span{font-size:.9rem;color:var(--muted)}
+.t-green b{color:var(--green)} .t-blue b{color:var(--blue)} .t-purple b{color:var(--purple)}
+
+/* shell */
+.shell{max-width:1200px;margin:0 auto;padding:56px 24px 80px;display:grid;grid-template-columns:230px minmax(0,1fr);gap:56px;align-items:start}
+.toc{position:sticky;top:80px;font-size:.9rem}
+.toc-title{font-weight:600;color:var(--ink);margin-bottom:10px}
+.toc ol{list-style:none;margin:0;padding:0;border-left:2px solid var(--line)}
+.toc a{display:block;padding:6px 0 6px 14px;color:var(--muted);text-decoration:none;border-left:2px solid transparent;margin-left:-2px;line-height:1.35}
+.toc a:hover{color:var(--ink)}
+.toc a.active{color:var(--green);border-left-color:var(--green);font-weight:600}
+.toc .num{font-family:"IBM Plex Mono",monospace;font-size:.76rem;margin-right:6px;opacity:.8}
+main{max-width:820px;min-width:0}
+section{padding-bottom:56px;margin-bottom:56px;border-bottom:1px solid var(--line)}
+section:last-of-type{border-bottom:0}
+.chap{display:flex;align-items:baseline;gap:16px;margin-bottom:6px}
+.chap .n{font-family:"IBM Plex Mono",monospace;font-size:2.3rem;color:var(--green);font-weight:500;line-height:1}
+.chap-sub{color:var(--muted);margin-bottom:22px;font-size:1.05rem}
+
+/* at a glance board */
+.glance{display:grid;grid-template-columns:1fr auto 1fr;border:1.5px solid var(--ink);border-radius:var(--radius);background:#fff;margin:20px 0;overflow:hidden}
+.glance-title{grid-column:1/-1;padding:10px 20px 0;font-weight:600;color:var(--ink);font-size:.95rem}
+.glance-col{padding:14px 20px 18px}
+.glance-col h4{margin:0 0 10px;display:inline-block;padding:2px 10px;border-radius:6px;font-size:.95rem}
+.glance-col.left h4{background:#FFEFB0;color:var(--ink)}
+.glance-col.right h4{background:var(--green-soft);color:var(--green)}
+.glance-col ul{margin:0;padding-left:18px}
+.glance-col li{margin:4px 0}
+.vs{display:flex;align-items:center;justify-content:center;position:relative;padding:0 8px}
+.vs::before{content:"";position:absolute;top:0;bottom:0;left:50%;border-left:1.5px solid var(--ink)}
+.vs span{position:relative;width:38px;height:38px;border-radius:50%;background:#FFD84D;color:var(--ink);font-weight:700;display:grid;place-items:center;font-size:.8rem;border:1.5px solid var(--ink)}
+
+/* code + output */
+.code{position:relative;margin:20px 0 10px;background:var(--code-bg);border-radius:var(--radius);overflow:hidden}
+.code figcaption{font-family:"IBM Plex Mono",monospace;font-size:.78rem;color:#9FB2CF;padding:10px 16px;border-bottom:1px solid rgba(255,255,255,.08)}
+.code pre{margin:0;padding:16px 18px;overflow-x:auto;font-size:.86rem;line-height:1.58;color:var(--code-fg)}
+.code .copy{position:absolute;top:7px;right:10px;background:rgba(255,255,255,.1);color:#E6EDF7;border:1px solid rgba(255,255,255,.2);border-radius:6px;padding:3px 10px;font:inherit;font-size:.78rem;cursor:pointer}
+.code .copy:hover{background:rgba(255,255,255,.2)}
+.hk{color:var(--kw)} .hs{color:var(--str)} .hc{color:var(--com);font-style:italic} .hd{color:var(--dec)} .hn{color:var(--num)}
+.run{font-family:"IBM Plex Mono",monospace;font-size:.84rem;color:var(--muted);margin:0 0 18px}
+.run b{color:var(--ink);font-weight:500}
+.out{margin:6px 0 22px;border:1px solid var(--line);border-radius:var(--radius);background:#fff;overflow:hidden}
+.out-bar{font-size:.78rem;font-weight:600;color:var(--muted);padding:7px 14px;border-bottom:1px solid var(--line);background:var(--bg)}
+.out pre{margin:0;padding:14px 16px;font-size:.84rem;line-height:1.55;color:var(--ink);white-space:pre-wrap;overflow-x:auto}
+
+/* callouts, lists, exercises */
+.note{border-left:4px solid var(--green);background:var(--green-soft);padding:12px 16px;border-radius:0 8px 8px 0;margin:18px 0}
+.note.warn{border-color:var(--amber);background:var(--amber-soft)}
+.note.info{border-color:var(--blue);background:var(--blue-soft)}
+.note.stop{border-color:var(--red);background:var(--red-soft)}
+.note p:last-child{margin:0}
+.take{list-style:none;padding:0;margin:8px 0 0}
+.take li{position:relative;padding-left:26px;margin:6px 0}
+.take li::before{content:"\2713";color:var(--green);font-weight:700;position:absolute;left:2px;top:0}
+.ex{background:var(--amber-soft);border:1px solid #F1D8A3;border-radius:var(--radius);padding:18px 20px;margin-top:26px}
+.ex h3{margin:0 0 10px;font-size:1.05rem}
+.ex ol{list-style:none;margin:0;padding:0;counter-reset:ex;display:grid;gap:8px}
+.ex li{counter-increment:ex;display:grid;grid-template-columns:34px 1fr;gap:6px;margin:0}
+.ex li::before{content:counter(ex,decimal-leading-zero);font-family:"IBM Plex Mono",monospace;font-weight:600;color:var(--amber)}
+.steps{list-style:none;padding:0;margin:0;counter-reset:st}
+.steps>li{counter-increment:st;display:grid;grid-template-columns:34px 1fr;gap:10px;margin:0 0 18px}
+.steps>li::before{content:counter(st);width:28px;height:28px;border-radius:50%;background:var(--ink);color:#fff;font-family:"IBM Plex Mono",monospace;font-size:.82rem;display:grid;place-items:center;margin-top:2px}
+.steps h4{margin:2px 0 6px;font-size:1rem}
+.steps .code,.steps .out{margin-top:10px}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+.grid3{display:grid;grid-template-columns:repeat(3,1fr);gap:14px}
+.card{border:1px solid var(--line);background:#fff;border-radius:var(--radius);padding:14px 16px}
+.card h4{margin:0 0 6px}
+.card p{margin:0;font-size:.92rem}
+.card .tag{display:inline-block;font-family:"IBM Plex Mono",monospace;font-size:.78rem;color:var(--green);background:var(--green-soft);padding:2px 8px;border-radius:5px;margin-bottom:6px}
+.mini{font-size:.92rem;color:var(--muted)}
+
+/* severity, the one component this subject needs that a generic guide does not */
+.sev{display:inline-block;font-family:"IBM Plex Mono",monospace;font-size:.74rem;font-weight:600;padding:2px 8px;border-radius:5px;letter-spacing:.02em;white-space:nowrap}
+.sev-error{background:var(--red-soft);color:var(--red);border:1px solid #F0C6C6}
+.sev-warn{background:var(--amber-soft);color:#A9690B;border:1px solid #F1D8A3}
+.sev-info{background:var(--blue-soft);color:var(--blue);border:1px solid #BFD3F6}
+
+/* tables */
+.tw{overflow-x:auto;margin:16px 0}
+table{width:100%;border-collapse:collapse;font-size:.92rem;margin:0}
+th,td{text-align:left;padding:10px 12px;border-bottom:1px solid var(--line);vertical-align:top}
+th{color:var(--ink);font-weight:600;background:var(--bg)}
+td.num{font-variant-numeric:tabular-nums;text-align:right}
+.rules th:first-child,.rules td:first-child{font-family:"IBM Plex Mono",monospace;font-size:.86rem;color:var(--ink);white-space:nowrap}
+
+/* gate board */
+.eco{display:grid;grid-template-columns:repeat(2,1fr);gap:16px;margin:20px 0}
+.eco-card{border-radius:12px;padding:18px;border:1.5px solid}
+.eco-green{border-color:#9AD6B6;background:#F3FBF6}
+.eco-blue{border-color:#A9C3F2;background:#F2F6FE}
+.eco-purple{border-color:#C9B0EA;background:#F8F3FD}
+.eco-amber{border-color:#F1D8A3;background:#FFFBF1}
+.eco-head{display:flex;align-items:center;gap:10px;margin-bottom:10px}
+.eco-icon{width:40px;height:40px;border-radius:50%;display:grid;place-items:center;flex:none}
+.eco-green .eco-icon{background:var(--green)} .eco-blue .eco-icon{background:var(--blue)}
+.eco-purple .eco-icon{background:var(--purple)} .eco-amber .eco-icon{background:var(--amber)}
+.eco-icon svg{width:22px;height:22px;stroke:#fff;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+.eco-head h3{margin:0;font-size:1.25rem}
+.eco-green .eco-head h3{color:var(--green)} .eco-blue .eco-head h3{color:var(--blue)}
+.eco-purple .eco-head h3{color:var(--purple)} .eco-amber .eco-head h3{color:#A9690B}
+.eco-head p{margin:0;font-size:.82rem;color:var(--muted)}
+.eco-def{background:rgba(255,255,255,.75);border-radius:8px;padding:10px 12px;font-size:.88rem;border:1px solid rgba(0,0,0,.06);margin-bottom:10px}
+.eco-card h4{font-size:.92rem;margin:12px 0 6px}
+.eco-green h4{color:var(--green)} .eco-blue h4{color:var(--blue)}
+.eco-purple h4{color:var(--purple)} .eco-amber h4{color:#A9690B}
+.eco-card ul{padding-left:18px;margin:0;font-size:.86rem}
+.eco-card li{margin:3px 0}
+
+/* diagrams */
+.diagram{background:#fff;border:1px solid var(--line);border-radius:var(--radius);padding:16px;margin:18px 0}
+.diagram svg{width:100%;height:auto;display:block}
+.diagram figcaption{font-size:.86rem;color:var(--muted);margin-top:8px;text-align:center}
+
+/* footer */
+footer{background:var(--ink);color:#C6D2E6;padding:40px 24px}
+.foot-in{max-width:1200px;margin:0 auto;display:flex;flex-wrap:wrap;justify-content:space-between;gap:16px;align-items:center}
+footer a{color:#9BD9BC;text-decoration:none}
+footer .brand{color:#fff}
+footer p{margin:0;font-size:.92rem}
+
+@media (max-width:960px){
+  .shell{grid-template-columns:1fr;gap:24px;padding-top:36px}
+  .toc{position:static}
+  .toc ol{display:flex;flex-wrap:wrap;border:0;gap:6px}
+  .toc a{border:1px solid var(--line);border-radius:999px;padding:5px 12px;margin:0}
+  .toc a.active{border-color:var(--green);background:var(--green-soft)}
+  .eco,.grid2,.grid3,.think-in{grid-template-columns:1fr}
+  .glance{grid-template-columns:1fr}
+  .vs{padding:6px 0}
+  .vs::before{left:0;right:0;top:50%;bottom:auto;border-left:0;border-top:1.5px solid var(--ink)}
+  .links{display:none}
+  .hero{padding:48px 24px 56px}
+}
+</style>
+</head>
+<body>
+
+<header class="topbar">
+  <div class="topbar-in">
+    <a class="brand" href="https://thetestingacademy.com"><i></i>The Testing Academy</a>
+    <nav class="links" aria-label="Links">
+      <a href="https://thetestingacademy.com">thetestingacademy.com</a>
+      <a href="https://www.youtube.com/@TheTestingAcademy">YouTube @TheTestingAcademy</a>
+    </nav>
+  </div>
+</header>
+
+<section class="hero">
+  <div class="hero-in">
+    <p class="hero-kicker">Quality gates for AI-generated tests, study guide</p>
+    <h1>Quality Gates for Playwright</h1>
+    <p class="lede">Your test suite is green, <code style="background:rgba(255,255,255,.12);color:#E6EDF7;padding:.1em .35em;border-radius:5px">tsc</code> is clean, ESLint has nothing to say, and the spec asserts nothing. Twelve lessons building the rule engine that catches it, each one adding a real file to a real Playwright framework.</p>
+    <ul class="meta">
+      <li>Node.js 20+</li>
+      <li>Playwright 1.62</li>
+      <li>ESLint 9 flat config</li>
+      <li>Zero-dependency engine</li>
+      <li>12 lessons</li>
+    </ul>
+    <p class="byline">By Pramod Dutta, founder of <a href="https://thetestingacademy.com">The Testing Academy</a></p>
+  </div>
+</section>
+
+<div class="think">
+  <div class="think-in">
+    <div class="think-label">Think of it this way</div>
+    <div class="t-green"><b>ESLint = what has a correct answer</b><span>a floating promise, a hard wait, an any</span></div>
+    <div class="t-blue"><b>The rule engine = what needs your repo's shape</b><span>is this used twice, does this spec use the fixture</span></div>
+    <div class="t-purple"><b>Hooks and CI = where the answer bites</b><span>before the edit, before the commit, on the PR</span></div>
+  </div>
+</div>
+
+<div class="shell">
+<aside class="toc" aria-label="Contents">
+  <div class="toc-title">Contents</div>
+  <ol>
+    <li><a href="#why">The spec that passes everything</a></li>
+    <li><a href="#setup">Setup and project layout</a></li>
+    <li><a href="#ch1"><span class="num">01</span>ESLint, the easy half</a></li>
+    <li><a href="#ch2"><span class="num">02</span>The gap a linter cannot see</a></li>
+    <li><a href="#ch3"><span class="num">03</span>Reading source safely</a></li>
+    <li><a href="#ch4"><span class="num">04</span>Your first rule</a></li>
+    <li><a href="#ch5"><span class="num">05</span>The report and the CLI</a></li>
+    <li><a href="#ch6"><span class="num">06</span>The ai-slop pack</a></li>
+    <li><a href="#ch7"><span class="num">07</span>The ponytail gate</a></li>
+    <li><a href="#ch8"><span class="num">08</span>Seeing across files</a></li>
+    <li><a href="#ch9"><span class="num">09</span>Your non-negotiables</a></li>
+    <li><a href="#ch10"><span class="num">10</span>Waivers and budgets</a></li>
+    <li><a href="#ch11"><span class="num">11</span>Pre-generation hooks</a></li>
+    <li><a href="#ch12"><span class="num">12</span>The PR gate, and shipping</a></li>
+    <li><a href="#next">What comes next</a></li>
+  </ol>
+</aside>
+
+<main>
+
+<section id="why">
+<h2>The spec that passes everything</h2>
+<p>Here is a Playwright spec. It compiles. ESLint has nothing to say about it. Run it and the suite goes green. Ship it and you have covered login.</p>
+<figure class="code"><figcaption>src/tests/login/login.spec.ts</figcaption><pre><code data-lang="ts">import { test } from &#x27;@playwright/test&#x27;;
+import { LoginPage } from &#x27;@pages/LoginPage&#x27;;
+
+test.describe(&#x27;Login&#x27;, () =&gt; {
+
+    // Arrange
+    test(&#x27;should work correctly&#x27;, async ({ page }) =&gt; {
+        const loginPage = new LoginPage(page);
+        // click the login button
+        await page.locator(&#x27;#login-button&#x27;).click();
+        await loginPage.loginAs(&#x27;standard_user&#x27;, &#x27;tta_secret&#x27;);
+    });
+});</code></pre></figure>
+<p>Except it asserts nothing. It passes as long as no line throws, which means it reports green on a login page that is completely broken as long as the button is still there to click. And that is only the first of seven things wrong with it:</p>
+<div class="tw"><table class="rules">
+<thead><tr><th>Rule</th><th>What it caught</th><th>Severity</th></tr></thead>
+<tbody>
+<tr><td>slop/test-without-assertion</td><td>The test checks nothing. It cannot fail for the reason it exists.</td><td><span class="sev sev-error">error</span></td></tr>
+<tr><td>framework/spec-imports-playwright-test</td><td>Imports the raw <code>test</code>, so it gets none of the project's fixtures.</td><td><span class="sev sev-error">error</span></td></tr>
+<tr><td>framework/page-object-constructed-in-spec</td><td><code>new LoginPage(page)</code> bypasses the fixture layer.</td><td><span class="sev sev-error">error</span></td></tr>
+<tr><td>framework/locator-in-spec</td><td><code>#login-button</code> is invisible to every other spec.</td><td><span class="sev sev-error">error</span></td></tr>
+<tr><td>framework/credential-argument-literal</td><td>The test account is now hard-coded in a twelfth place.</td><td><span class="sev sev-error">error</span></td></tr>
+<tr><td>slop/generic-test-title</td><td>"should work correctly" tells a failure report nothing.</td><td><span class="sev sev-warn">warn</span></td></tr>
+<tr><td>slop/section-banner-comment</td><td><code>// Arrange</code> labels a shape everyone already recognises.</td><td><span class="sev sev-warn">warn</span></td></tr>
+<tr><td>slop/narrating-comment</td><td><code>// click the login button</code> is the next line read aloud.</td><td><span class="sev sev-warn">warn</span></td></tr>
+</tbody></table></div>
+<div class="note stop"><p><strong>Nothing in a normal pipeline objects to any of this.</strong> A reviewer objects, once, and then gets tired. That is the gap generated code walks through, and it widens with the volume an agent can produce. This guide builds the thing that objects every time, in under a fifth of a second.</p></div>
+<h3>Four gates</h3>
+<p class="mini">Each gate is one question, asked of every file. Twelve lessons from now you will have all four, 46 rules, and the four places they fire.</p>
+<div class="eco">
+  <article class="eco-card eco-amber">
+    <div class="eco-head">
+      <span class="eco-icon"><svg viewBox="0 0 24 24"><path d="M12 9v4"/><path d="M12 17h.01"/><path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"/></svg></span>
+      <div><h3>ai-slop</h3><p>14 rules</p></div>
+    </div>
+    <p class="eco-def">Was this generated, skimmed, and shipped?</p>
+    <h4>Catches</h4>
+    <ul>
+      <li>Tests that assert nothing</li>
+      <li><code>expect(true).toBe(true)</code></li>
+      <li>Comments that restate the line below</li>
+      <li>Empty <code>catch</code> blocks</li>
+      <li>Arrange / Act / Assert banners</li>
+      <li>Test bodies duplicated in shape</li>
+    </ul>
+  </article>
+  <article class="eco-card eco-green">
+    <div class="eco-head">
+      <span class="eco-icon"><svg viewBox="0 0 24 24"><path d="M20 6 9 17l-5-5"/></svg></span>
+      <div><h3>ponytail</h3><p>9 rules</p></div>
+    </div>
+    <p class="eco-def">Does anything else in the run already record this?</p>
+    <h4>Catches</h4>
+    <ul>
+      <li><code>test.step</code> around a single call</li>
+      <li>Logs restating their own step name</li>
+      <li>Attachments the trace already holds</li>
+      <li>Manual screenshots and timing</li>
+      <li>Too much spec per assertion</li>
+    </ul>
+  </article>
+  <article class="eco-card eco-blue">
+    <div class="eco-head">
+      <span class="eco-icon"><svg viewBox="0 0 24 24"><path d="M3 3v18h18"/><path d="M7 15l4-4 3 3 5-6"/></svg></span>
+      <div><h3>over-engineering</h3><p>9 rules</p></div>
+    </div>
+    <p class="eco-def">How many callers does this abstraction have?</p>
+    <h4>Catches</h4>
+    <ul>
+      <li>Exports nothing imports</li>
+      <li>Shared helpers with one caller</li>
+      <li>Methods that forward their own arguments</li>
+      <li>Page objects two levels below the base</li>
+      <li>Barrel files and premature generics</li>
+    </ul>
+  </article>
+  <article class="eco-card eco-purple">
+    <div class="eco-head">
+      <span class="eco-icon"><svg viewBox="0 0 24 24"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg></span>
+      <div><h3>framework-patterns</h3><p>14 rules</p></div>
+    </div>
+    <p class="eco-def">Is this still part of this framework?</p>
+    <h4>Catches</h4>
+    <ul>
+      <li>Specs that skip the fixture layer</li>
+      <li>Locators outside a page object</li>
+      <li><code>dotenv.config()</code> in a spec</li>
+      <li>Credentials in the source</li>
+      <li>Relative imports across layers</li>
+    </ul>
+  </article>
+</div>
+<div class="glance">
+  <div class="glance-title">Two tools, one line between them</div>
+  <div class="glance-col left">
+    <h4>ESLint answers</h4>
+    <ul>
+      <li>Is this promise awaited?</li>
+      <li>Is this a hard wait?</li>
+      <li>Is this <code>force: true</code>?</li>
+      <li>Is this <code>any</code>?</li>
+      <li>Is this variable used?</li>
+    </ul>
+    <p class="mini" style="margin:10px 0 0">Questions with one correct answer and, usually, a fixer.</p>
+  </div>
+  <div class="vs"><span>vs</span></div>
+  <div class="glance-col right">
+    <h4>Only your repo answers</h4>
+    <ul>
+      <li>Is this helper used twice?</li>
+      <li>Does this comment add anything?</li>
+      <li>Does this spec go through the fixture?</li>
+      <li>Does the trace already record this?</li>
+      <li>Does anything import this export?</li>
+    </ul>
+    <p class="mini" style="margin:10px 0 0">Questions that need the shape of <em>this</em> project.</p>
+  </div>
+</div>
+<div class="note info"><p><strong>One owner per rule.</strong> A hard wait is the most recognisable AI tell there is, and it will not appear in the ai-slop pack, because <code>playwright/no-wait-for-timeout</code> already owns it. Two tools reporting the same finding teaches people to skim past both.</p></div>
+</section>
+<section id="setup">
+<h2>Setup and project layout</h2>
+<p>The starting point is any Playwright + TypeScript suite. The examples come from <strong>AdvancePlaywrightFramework2x</strong>, which has page objects in <code>src/pages/</code>, fixtures in <code>src/fixtures/</code>, and specs in <code>src/tests/</code>. If your layout differs, the rules change; the engine does not.</p>
+<figure class="code"><figcaption>install the linting half</figcaption><pre><code data-lang="sh">npm install --save-dev eslint@^9 @eslint/js@^9 typescript-eslint@^8 \
+  eslint-plugin-playwright@^2 globals typescript@^5.9</code></pre></figure>
+<div class="note warn"><p><strong>Pin TypeScript to the major your <code>tsconfig.json</code> was written for.</strong> Installing <code>typescript</code> without a range pulled in 6.x during the original build and broke <code>tsc --noEmit</code> on two options that 5.x accepts happily: <code>moduleResolution: node10</code> and <code>baseUrl</code>. A linter install should not force a compiler upgrade.</p></div>
+<p>The engine half installs nothing. That is a decision, not a boast: it runs on every file the agent writes, so its start-up cost <em>is</em> the cost of the gate. Here is what you will have built by lesson twelve.</p>
+<figure class="code"><figcaption>project layout</figcaption><pre><code data-lang="text">quality/
+  gate.mjs              # the one entry point every stage calls
+  gate.config.mjs       # include/exclude, severity overrides, profiles
+  selftest.mjs          # proves the rules still fire
+  __tests__/fixtures/   # one slop-ridden spec, one clean one
+  engine/
+    source.mjs          # lexer: masks strings and comments  (lesson 03)
+    detectors.mjs       # the primitives a rule is built from (04, 06, 07)
+    repo-index.mjs      # the import graph across the repo    (lesson 08)
+    run.mjs             # rule loading, scoping, waivers      (04, 10)
+    report.mjs          # console / hook / markdown / json    (lesson 05)
+rules/
+  ai-slop.rules.mjs             # lesson 06
+  ponytail.rules.mjs            # lesson 07
+  over-engineering.rules.mjs    # lesson 08
+  framework-patterns.rules.mjs  # lesson 09
+.claude/hooks/          # the four pre-generation hooks       (lesson 11)
+.github/workflows/quality-gate.yml                          # (lesson 12)</code></pre></figure>
+<p>Every lesson adds one of those files and ends with a command you can run. Nothing is scaffolding you throw away later.</p>
+<figure class="code"><figcaption>how to run any lesson</figcaption><pre><code data-lang="sh">node quality/gate.mjs --file src/tests/login/login.spec.ts   # one file
+node quality/gate.mjs --all --profile audit                  # whole repo, fails on nothing
+node quality/gate.mjs --list-rules                           # every rule and its severity</code></pre></figure>
+</section>
+<section id="ch1">
+<div class="chap"><span class="n">01</span><h2>ESLint, the easy half</h2></div>
+<p class="chap-sub">Flat config, type-aware rules, and the one rule that pays for the whole setup.</p>
+<p>Start with the half that has correct answers. ESLint 9 uses a flat config: an array of blocks, each naming the files it applies to. Type-aware rules need <code>projectService</code>, which hands the parser your real <code>tsconfig.json</code>.</p>
+<figure class="code"><figcaption>eslint.config.mjs</figcaption><pre><code data-lang="ts">import js from &#x27;@eslint/js&#x27;;
+import tseslint from &#x27;typescript-eslint&#x27;;
+import playwright from &#x27;eslint-plugin-playwright&#x27;;
+import globals from &#x27;globals&#x27;;
+
+export default tseslint.config(
+  { ignores: [&#x27;node_modules/**&#x27;, &#x27;playwright-report/**&#x27;, &#x27;test-results/**&#x27;] },
+
+  {
+    files: [&#x27;**/*.ts&#x27;],
+    extends: [js.configs.recommended, ...tseslint.configs.recommendedTypeChecked],
+    languageOptions: {
+      parserOptions: { projectService: true, tsconfigRootDir: import.meta.dirname },
+      globals: globals.node,
+    },
+    rules: {
+      // The one rule that pays for the whole type-aware setup.
+      &#x27;@typescript-eslint/no-floating-promises&#x27;: &#x27;error&#x27;,
+      &#x27;@typescript-eslint/await-thenable&#x27;: &#x27;error&#x27;,
+      &#x27;@typescript-eslint/no-explicit-any&#x27;: &#x27;warn&#x27;,
+      &#x27;max-params&#x27;: [&#x27;warn&#x27;, 4],
+      complexity: [&#x27;warn&#x27;, 12],
+      &#x27;no-console&#x27;: &#x27;error&#x27;,
+    },
+  },
+
+  {
+    files: [&#x27;src/tests/**/*.ts&#x27;],
+    extends: [playwright.configs[&#x27;flat/recommended&#x27;]],
+    rules: {
+      &#x27;playwright/no-wait-for-timeout&#x27;: &#x27;error&#x27;,
+      &#x27;playwright/no-force-option&#x27;: &#x27;error&#x27;,
+      &#x27;playwright/prefer-web-first-assertions&#x27;: &#x27;error&#x27;,
+      &#x27;playwright/no-conditional-expect&#x27;: &#x27;error&#x27;,
+      &#x27;playwright/expect-expect&#x27;: &#x27;off&#x27;,   // lesson 06 does this better
+    },
+  },
+);</code></pre></figure>
+<p class="run"><b>Run:</b> npx eslint src playwright.config.ts</p>
+<div class="out"><div class="out-bar">Output</div><pre>src/tests/apisTests/01_restfulbooker_raw/01_basic_ping.spec.ts
+  6:9  error  Unexpected console statement  no-console
+
+src/tests/login/login.spec.ts
+  18:57  error  &#x27;page&#x27; is defined but never used  @typescript-eslint/no-unused-vars
+
+src/utils/SchemaValidator.ts
+  33:23  error  This assertion is unnecessary since it does not change the type of the expression
+
+  43 problems (16 errors, 27 warnings)</pre></div>
+<div class="note"><p><strong><code>no-floating-promises</code> is the reason to accept type-aware linting.</strong> A missing <code>await</code> on a Playwright action does not throw. The test finishes early, passes, and the action lands on the next test's page. It is the only bug in this list that a green suite actively hides.</p></div>
+<div class="grid3">
+  <div class="card"><span class="tag">projectService</span><p>Gives rules the type checker, so they can tell a promise from a value. Costs about 2 seconds of start-up, which lesson 11 spends carefully.</p></div>
+  <div class="card"><span class="tag">flat/recommended</span><p>The Playwright plugin's own set: hard waits, <code>force</code>, focused tests, conditional expects. Scope it to <code>src/tests/</code> so page objects are not judged as specs.</p></div>
+  <div class="card"><span class="tag">expect-expect: off</span><p>Turned off on purpose. Lesson 06 rebuilds it in a form that understands your <code>assertLoaded()</code> page methods.</p></div>
+</div>
+<h3>Key takeaways</h3><ul class="take">
+<li>Flat config is an array of blocks, each scoped by <code>files</code></li>
+<li>Type-aware rules need <code>projectService</code> and a real <code>tsconfig.json</code></li>
+<li><code>no-floating-promises</code> catches the bug a green suite hides</li>
+<li>Scope the Playwright plugin to the spec directory only</li>
+<li>Turn a plugin rule off when you intend to own that question yourself</li>
+</ul>
+<div class="ex"><h3>Exercises</h3><ol>
+<li><span>Install the packages and add <code>eslint.config.mjs</code>. Run it over your <code>src/</code> and write down the error count. That is your baseline.</span></li>
+<li><span>Delete an <code>await</code> in front of a <code>page.click()</code> and confirm ESLint reports it while the test still passes.</span></li>
+<li><span>Add <code>playwright/no-skipped-test</code> as a warning and see how many skipped tests your suite has been carrying.</span></li>
+<li><span>Run <code>npx eslint --fix</code> on a copy of your repo and count how many of the findings were mechanical.</span></li>
+</ol></div>
+</section>
+<section id="ch2">
+<div class="chap"><span class="n">02</span><h2>The gap a linter cannot see</h2></div>
+<p class="chap-sub">Why a second tool is needed, and the shape it has to take.</p>
+<p>Run ESLint over the spec from the top of this guide and it finds one thing: an unused <code>page</code> parameter. Every genuine problem in that file, starting with the missing assertion, is invisible to it, and not because ESLint is weak. The questions are simply of a different kind.</p>
+<p>"Does this spec go through the fixture layer?" has no universal answer. It depends on a fixture module that exists in <em>this</em> repo. A general-purpose linter cannot ship that rule, and you should not want it to.</p>
+<figure class="diagram">
+<svg viewBox="0 0 760 210" role="img" aria-label="A file is lexed into masked code, comments and strings, which rules read to produce findings, which a reporter renders">
+  <defs><marker id="a2" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse"><path d="M0 0L10 5L0 10z" fill="#13294B"/></marker></defs>
+  <g font-family="IBM Plex Sans, sans-serif" font-size="13" fill="#13294B">
+    <rect x="8" y="70" width="104" height="56" rx="8" fill="#fff" stroke="#13294B" stroke-width="1.5"/>
+    <text x="60" y="94" text-anchor="middle" font-weight="600">.ts file</text>
+    <text x="60" y="112" text-anchor="middle" font-size="11" fill="#5F7090">on disk</text>
+    <path d="M118 98h34" stroke="#13294B" stroke-width="2" fill="none" marker-end="url(#a2)"/>
+    <rect x="158" y="52" width="128" height="92" rx="8" fill="#E4F4EB" stroke="#1E8A5A" stroke-width="1.5"/>
+    <text x="222" y="76" text-anchor="middle" font-weight="600">source.mjs</text>
+    <text x="222" y="96" text-anchor="middle" font-size="11">masked code</text>
+    <text x="222" y="113" text-anchor="middle" font-size="11">comments</text>
+    <text x="222" y="130" text-anchor="middle" font-size="11">strings</text>
+    <path d="M292 98h34" stroke="#13294B" stroke-width="2" fill="none" marker-end="url(#a2)"/>
+    <rect x="332" y="52" width="128" height="92" rx="8" fill="#E7EFFC" stroke="#2A66D6" stroke-width="1.5"/>
+    <text x="396" y="76" text-anchor="middle" font-weight="600">detectors</text>
+    <text x="396" y="96" text-anchor="middle" font-size="11">+ rules as data</text>
+    <text x="396" y="113" text-anchor="middle" font-size="11">+ repo index</text>
+    <text x="396" y="130" text-anchor="middle" font-size="11">= findings</text>
+    <path d="M466 98h34" stroke="#13294B" stroke-width="2" fill="none" marker-end="url(#a2)"/>
+    <rect x="506" y="52" width="128" height="92" rx="8" fill="#F0E8FA" stroke="#7A3FC4" stroke-width="1.5"/>
+    <text x="570" y="76" text-anchor="middle" font-weight="600">report.mjs</text>
+    <text x="570" y="96" text-anchor="middle" font-size="11">console</text>
+    <text x="570" y="113" text-anchor="middle" font-size="11">hook, markdown</text>
+    <text x="570" y="130" text-anchor="middle" font-size="11">json</text>
+    <path d="M640 98h34" stroke="#13294B" stroke-width="2" fill="none" marker-end="url(#a2)"/>
+    <rect x="680" y="70" width="72" height="56" rx="8" fill="#FFF5E1" stroke="#D98E1F" stroke-width="1.5"/>
+    <text x="716" y="94" text-anchor="middle" font-weight="600">exit 0</text>
+    <text x="716" y="112" text-anchor="middle" font-weight="600">or 1</text>
+    <text x="380" y="185" text-anchor="middle" font-size="12" fill="#5F7090">Four stages call this same pipeline. Only the consequence of a non-zero exit changes.</text>
+  </g>
+</svg>
+<figcaption>The whole engine in one line: read a file into something rules can reason about, run rules, render, exit.</figcaption>
+</figure>
+<p>Before any of that, write down what gets scanned and how hard each stage bites. Profiles are how one set of rules serves four stages: while the agent is writing code an error blocks the edit and a warning is advice; on a pull request the warnings are counted against a budget.</p>
+<figure class="code"><figcaption>quality/gate.config.mjs</figcaption><pre><code data-lang="ts">export default {
+    include: [&#x27;src/**/*.ts&#x27;, &#x27;playwright.config.ts&#x27;],
+    exclude: [&#x27;**/node_modules/**&#x27;, &#x27;**/*.d.ts&#x27;, &#x27;src/tests/aiTest/**&#x27;],
+
+    /** Per-rule severity, without editing the pack. For a team that disagrees. */
+    severityOverrides: {},
+
+    profiles: {
+        hook:   { fail: [&#x27;error&#x27;], budgets: {} },   // after every agent edit
+        commit: { fail: [&#x27;error&#x27;], budgets: {} },   // npm run gate, pre-commit
+        ci: {                                        // the pull request
+            fail: [&#x27;error&#x27;],
+            budgets: {
+                &#x27;ai-slop&#x27;: { warn: 6 },
+                ponytail: { warn: 8 },
+                &#x27;over-engineering&#x27;: { warn: 6 },
+                &#x27;framework-patterns&#x27;: { warn: 4 },
+            },
+        },
+        audit:  { fail: [], budgets: {} },          // whole repo, reports only
+    },
+};</code></pre></figure>
+<div class="note info"><p><strong>Budgets are per change, not per repo.</strong> A pull request may carry a handful of judgement-call warnings; it may not carry thirty. A per-repo budget would fail on day one and be deleted by day three.</p></div>
+<h3>Key takeaways</h3><ul class="take">
+<li>A general linter cannot hold rules that depend on your fixture module</li>
+<li>One pipeline: lex, run rules, render, exit</li>
+<li>Profiles let one rule set serve the edit loop, the commit, and the PR</li>
+<li>Severity decides consequence, not importance</li>
+<li>Budgets belong to a change, not to a repository</li>
+</ul>
+<div class="ex"><h3>Exercises</h3><ol>
+<li><span>Write your own <code>gate.config.mjs</code>. Which directories in your repo are deliberately weird and should be excluded? Write the reason next to each one.</span></li>
+<li><span>List three questions your team asks in code review that no linter could answer. Those are your first rules.</span></li>
+<li><span>Decide your four profile names before writing any rule. What should block an agent mid-edit, and what should only ever be advice?</span></li>
+</ol></div>
+</section>
+<section id="ch3">
+<div class="chap"><span class="n">03</span><h2>Reading source safely</h2></div>
+<p class="chap-sub">The masked lexer. One technique separates a usable gate from a noisy one.</p>
+<p>The naive version of this whole project is <code>grep</code>. It fails immediately, and always the same way:</p>
+<figure class="code"><figcaption>three appearances of the same string</figcaption><pre><code data-lang="ts">// never call page.waitForTimeout in a spec        &lt;- documentation
+log.info(&#x27;replacing page.waitForTimeout with a poll&#x27;);  // &lt;- a log message
+await page.waitForTimeout(2000);                    // &lt;- the actual finding</code></pre></figure>
+<p>A regex sees three hits. A reviewer sees one. The fix is to walk the file once and produce a second copy where comment bodies and string contents are blanked out, newlines preserved so every character still maps to its original line. Rules read that copy by default and opt into the comments or the strings when the prose is the point.</p>
+<figure class="code"><figcaption>quality/engine/source.mjs (the heart of lex)</figcaption><pre><code data-lang="ts">export function lex(text) {
+    const out = new Array(text.length);
+    const comments = [];
+    const strings = [];
+    let line = 1, i = 0;
+
+    while (i &lt; text.length) {
+        const ch = text[i], next = text[i + 1];
+
+        if (ch === &#x27;/&#x27; &amp;&amp; next === &#x27;/&#x27;) {
+            const start = i;
+            while (i &lt; text.length &amp;&amp; text[i] !== &#x27;\n&#x27;) i += 1;
+            comments.push({ line, kind: &#x27;line&#x27;, text: text.slice(start + 2, i).trim() });
+            blank(start, i);                       // keeps offsets and newlines
+            continue;
+        }
+
+        if (ch === &#x27;&quot;&#x27; || ch === &quot;&#x27;&quot; || ch === &#x27;`&#x27;) {
+            // ... consume to the matching quote, honouring backslash escapes,
+            // record { line, value }, blank the body, keep the quotes.
+        }
+
+        if (ch === &#x27;/&#x27; &amp;&amp; regexAllowedAt(text, i)) {
+            // A slash only starts a regex literal where a value is expected.
+            // Get this wrong and `a / b // c` becomes a comment.
+        }
+
+        out[i] = ch;
+        if (ch === &#x27;\n&#x27;) line += 1;
+        i += 1;
+    }
+
+    return { masked: out.join(&#x27;&#x27;), comments, strings };
+}</code></pre></figure>
+<p>Here is a real page object, and the same lines after masking:</p>
+<div class="out"><div class="out-bar">src/pages/LoginPage.ts, as written</div><pre>    async open(): Promise&lt;void&gt; {
+        this.log.info(&quot;Open login pgae&quot;);
+        await this.goto(LoginPage.PATH);
+    }</pre></div>
+<div class="out"><div class="out-bar">the same lines, masked</div><pre>    async open(): Promise&lt;void&gt; {
+        this.log.info(&quot;               &quot;);
+        await this.goto(LoginPage.PATH);
+    }</pre></div>
+<p>Same length, same line numbers, same column positions. The string is gone and <code>LoginPage.PATH</code> is still there, because it is code. Every rule in the remaining nine lessons is built on that one property.</p>
+<div class="note warn"><p><strong>Masking has a cost, and lesson 07 pays it.</strong> The comment <code>// click the login button</code> sits above <code>page.locator('#login-button').click()</code>, and in the masked copy the words <code>login-button</code> are gone. A rule comparing the two has to read the raw line, not the masked one. Knowing which copy a rule needs is most of the skill here.</p></div>
+<p>The same pass also collects what the file imports, exports, and declares. Lesson 08 turns that into a graph.</p>
+<figure class="code"><figcaption>quality/engine/source.mjs (what readSource returns)</figcaption><pre><code data-lang="ts">return {
+    path, layer,          // &#x27;spec&#x27; | &#x27;page&#x27; | &#x27;fixture&#x27; | &#x27;api&#x27; | &#x27;util&#x27; | ...
+    text, masked,         // raw and safe-to-regex
+    lines, maskedLines,
+    comments, strings,    // each with the line it started on
+    imports, exports, classes,
+    lineAt,               // byte offset -&gt; line number, binary search
+    isSpec,
+};</code></pre></figure>
+<div class="grid3">
+  <div class="card"><span class="tag">layer</span><p>Derived from the path. <code>src/pages/</code> is a page, <code>src/tests/</code> is a spec. Rules are scoped by layer, which is how one rule can apply to specs and not to helpers.</p></div>
+  <div class="card"><span class="tag">lineAt()</span><p>A regex match gives you an offset. Findings need a line. Pre-compute the line starts once, then binary search.</p></div>
+  <div class="card"><span class="tag">regexAllowedAt()</span><p>Twelve lines of care so a division sign is not mistaken for a regex literal, which would swallow the rest of the file as a string.</p></div>
+</div>
+<h3>Key takeaways</h3><ul class="take">
+<li>Never regex raw source: a match in a comment is documentation, not a finding</li>
+<li>Mask comment and string bodies, preserve every offset and newline</li>
+<li>Record comments and strings separately so rules can opt in to them</li>
+<li>Derive a layer from the path and scope rules by it</li>
+<li>Collect imports and exports in the same pass; lesson 08 needs them</li>
+</ul>
+<div class="ex"><h3>Exercises</h3><ol>
+<li><span>Write <code>lex()</code> and run it over your largest page object. Print the masked copy next to the original and check that no line number moved.</span></li>
+<li><span>Feed it a file containing <code>const re = /\/\//;</code> and a line with a division. If the rest of the file vanishes, your regex detection is wrong.</span></li>
+<li><span>Add a <code>layerOf()</code> that matches <em>your</em> directory names, and print the layer of every file in <code>src/</code>. Anything landing in <code>other</code> is a directory your rules will silently skip.</span></li>
+</ol></div>
+</section>
+<section id="ch4">
+<div class="chap"><span class="n">04</span><h2>Your first rule</h2></div>
+<p class="chap-sub">Rules are data, detectors are code. The split that keeps this maintainable.</p>
+<p>The temptation is to write each rule as a function. Fifty rules later, adding "no <code>page.pause()</code> in specs" means writing code, testing code, and reviewing code, and nobody adds the rule.</p>
+<p>Instead: a rule is a plain object naming a <em>detector</em> and its options. The detectors are code and there are twelve of them. Rules are data and there are forty-six.</p>
+<figure class="code"><figcaption>rules/ai-slop.rules.mjs (a first rule)</figcaption><pre><code data-lang="ts">export default {
+    gate: &#x27;ai-slop&#x27;,
+    rules: [
+        {
+            id: &#x27;slop/constant-assertion&#x27;,
+            title: &#x27;Assertion on a constant&#x27;,
+            severity: &#x27;error&#x27;,
+            detect: &#x27;regex&#x27;,
+            options: {
+                pattern: /\bexpect\s*\(\s*(?:true|false|\d+)\s*\)\s*\.\s*(?:toBe|toEqual)\s*\(/,
+            },
+            why: &#x27;`expect(true).toBe(true)` exercises nothing. It exists to make a test look finished.&#x27;,
+            fix: &#x27;Assert against a value the system under test produced, or delete the line.&#x27;,
+        },
+    ],
+};</code></pre></figure>
+<div class="note"><p><strong><code>why</code> and <code>fix</code> are not documentation, they are the product.</strong> They print in the terminal, in the feedback the agent reads when its edit is blocked, and in the pull request comment. A rule whose <code>why</code> says "this is bad practice" gets waived by the first person who hits it.</p></div>
+<p>The <code>regex</code> detector is the workhorse. Note the <code>target</code>: this is where lesson 03 pays off.</p>
+<figure class="code"><figcaption>quality/engine/detectors.mjs</figcaption><pre><code data-lang="ts">/** Plain pattern match against code, comments, strings, or the raw text. */
+function regex(file, rule) {
+    const { pattern, target = &#x27;code&#x27;, unless, detail } = rule.options;
+    const re = globalize(pattern);
+    const found = [];
+
+    if (target === &#x27;comments&#x27; || target === &#x27;strings&#x27;) {
+        for (const item of target === &#x27;comments&#x27; ? file.comments : file.strings) {
+            const value = target === &#x27;comments&#x27; ? item.text : item.value;
+            if (!re.test(value)) { re.lastIndex = 0; continue; }
+            re.lastIndex = 0;
+            if (unless &amp;&amp; unless.test(value)) continue;
+            found.push(at(file, item.line, detail));
+        }
+        return found;
+    }
+
+    const haystack = target === &#x27;raw&#x27; ? file.text : file.masked;
+    for (const m of haystack.matchAll(re)) {
+        const line = file.lineAt(m.index);
+        if (unless &amp;&amp; unless.test(file.lines[line - 1] ?? &#x27;&#x27;)) continue;
+        found.push(at(file, line, detail));
+    }
+    return found;
+}</code></pre></figure>
+<p>The runner loads every <code>*.rules.mjs</code> pack, decides which files each rule applies to, and calls the named detector.</p>
+<figure class="code"><figcaption>quality/engine/run.mjs</figcaption><pre><code data-lang="ts">function ruleApplies(rule, file) {
+    if (rule.enabled === false) return false;
+    if (rule.layers &amp;&amp; !rule.layers.includes(file.layer)) return false;
+    if (rule.specsOnly &amp;&amp; !file.isSpec) return false;
+    if (rule.include &amp;&amp; !matchesAny(file.path, rule.include)) return false;
+    if (rule.exclude &amp;&amp; matchesAny(file.path, rule.exclude)) return false;
+    return true;
+}
+
+for (const file of files) {
+    for (const rule of rules) {
+        if (!ruleApplies(rule, file)) continue;
+        const detector = detectors[rule.detect];
+        if (!detector) throw new Error(`Rule ${rule.id} names unknown detector &quot;${rule.detect}&quot;`);
+        for (const hit of detector(file, rule, ctx)) {
+            raw.push({ ruleId: rule.id, gate: rule.gate, severity: rule.severity, ...hit });
+        }
+    }
+}</code></pre></figure>
+<div class="note warn"><p><strong>A bug worth stealing.</strong> The glob translator in <code>matchesAny</code> converted <code>?</code> to <code>.</code> as its last step, after it had already produced <code>(?:.*/)?</code> groups, so it rewrote its own output. Every pattern matched nothing, the walker found one file, and the gate cheerfully reported a clean repo. Substitute the wildcards before you create any regex syntax of your own, and always check the file count.</p></div>
+<h3>Key takeaways</h3><ul class="take">
+<li>Detectors are code, rules are data: adding a rule is a four-line data change</li>
+<li>Every rule names a detector; an unknown name is a hard error, not a silent skip</li>
+<li><code>target</code> chooses masked code, raw text, comments, or strings</li>
+<li><code>why</code> and <code>fix</code> are what the reader acts on, so write them like it</li>
+<li>A gate that reports zero findings is a gate you should distrust until you prove it scanned something</li>
+</ul>
+<div class="ex"><h3>Exercises</h3><ol>
+<li><span>Add <code>slop/constant-assertion</code> and run it over a file where you have pasted <code>expect(true).toBe(true)</code>. Then put the same text in a comment and confirm it is not reported.</span></li>
+<li><span>Write <code>slop/no-page-pause</code> for <code>page.pause()</code>, specs only. It should be four lines plus a <code>why</code> and a <code>fix</code>.</span></li>
+<li><span>Write the <code>why</code> for your rule twice: once as "this is bad practice", once naming what breaks. Show both to a colleague and ask which one they would act on.</span></li>
+<li><span>Deliberately typo a <code>detect</code> value and confirm your runner throws rather than skipping the rule.</span></li>
+</ol></div>
+</section>
+<section id="ch5">
+<div class="chap"><span class="n">05</span><h2>The report and the CLI</h2></div>
+<p class="chap-sub">Four renderings of one set of findings, and the exit code that makes them bite.</p>
+<p>Four stages consume this gate and each wants a different shape. All four call one CLI, which is the only way the pull request comment can never disagree with your terminal.</p>
+<div class="tw"><table>
+<thead><tr><th>Format</th><th>Who reads it</th><th>Shape</th></tr></thead>
+<tbody>
+<tr><td><code>console</code></td><td>you, in a terminal</td><td>grouped by file, coloured, <code>why</code> and <code>fix</code> on first occurrence of each rule</td></tr>
+<tr><td><code>hook</code></td><td>the coding agent</td><td>no colour, no prose, one line per finding plus the fix</td></tr>
+<tr><td><code>markdown</code></td><td>the pull request</td><td>a per-gate table, collapsible sections, budget breaches</td></tr>
+<tr><td><code>json</code></td><td>anything else</td><td>everything, for your own tooling</td></tr>
+</tbody></table></div>
+<p>One detail matters more than it looks: <code>why</code> and <code>fix</code> print on the <em>first</em> occurrence of a rule and are omitted on repeats. Eleven copies of the same two paragraphs is how a report teaches people to skim past it.</p>
+<figure class="code"><figcaption>quality/engine/report.mjs</figcaption><pre><code data-lang="ts">export function renderConsole({ findings, waived, result, profileName, scanned }) {
+    const out = [bold(`Quality Gate - ${profileName} profile - ${pluralize(scanned, &#x27;file&#x27;)} scanned`)];
+    const seen = new Set();
+
+    for (const [file, group] of groupBy(findings, (f) =&gt; f.file)) {
+        out.push(&#x27;&#x27;, bold(file));
+        for (const f of group) {
+            const style = SEVERITY_STYLE[f.severity];
+            out.push(`  ${dim(String(f.line).padStart(4))}  ${style(MARK[f.severity])}  ${f.title}  ${dim(f.ruleId)}`);
+            if (f.detail) out.push(`        ${dim(f.detail)}`);
+            if (f.excerpt) out.push(`        ${dim(&#x27;&gt; &#x27; + f.excerpt)}`);
+            if (!seen.has(f.ruleId)) {               // once per rule, not once per hit
+                seen.add(f.ruleId);
+                if (f.why) out.push(`        ${dim(&#x27;why&#x27;)} ${f.why}`);
+                if (f.fix) out.push(`        ${dim(&#x27;fix&#x27;)} ${f.fix}`);
+            }
+        }
+    }
+    return out.join(&#x27;\n&#x27;);
+}</code></pre></figure>
+<p>The CLI decides what to report on. The scan itself is always the whole repo, which lesson 08 explains; only the report is scoped.</p>
+<figure class="code"><figcaption>quality/gate.mjs</figcaption><pre><code data-lang="ts">function resolveScope(args) {
+    switch (args.mode) {
+        case &#x27;staged&#x27;:
+            return git(&#x27;diff&#x27;, &#x27;--cached&#x27;, &#x27;--name-only&#x27;, &#x27;--diff-filter=ACMR&#x27;);
+        case &#x27;changed&#x27;: {
+            const base = args.base ?? process.env.GATE_BASE ?? &#x27;origin/main&#x27;;
+            const merge = git(&#x27;merge-base&#x27;, base, &#x27;HEAD&#x27;)[0];
+            return git(&#x27;diff&#x27;, &#x27;--name-only&#x27;, &#x27;--diff-filter=ACMR&#x27;, merge, &#x27;HEAD&#x27;);
+        }
+        case &#x27;files&#x27;:
+            return args.files.map((f) =&gt; relative(ROOT, resolve(f)));
+        default:
+            return null;                              // whole repo
+    }
+}
+
+// A change touching only files the gate does not cover is a pass, not a
+// whole-repo scan. Without this, editing the README reports every
+// pre-existing finding in src/.
+if (scope !== null &amp;&amp; scope.length === 0) return 0;</code></pre></figure>
+<p class="run"><b>Run:</b> node quality/gate.mjs --file src/tests/login/login.spec.ts --profile audit</p>
+<div class="out"><div class="out-bar">Output</div><pre>Quality Gate - audit profile - 1 file scanned
+
+src/tests/login/login.spec.ts
+    13  warn   Log line narrates the call under it  ponytail/log-restates-next-line
+        restates line 12
+        &gt; log.info(&#x27;Opening the TTACart login page&#x27;);
+        why &quot;Creating booking&quot; above `createBooking()` is the code read aloud.
+        fix Log the values, not the intent.
+    18  error  Test asserts nothing  slop/test-without-assertion
+        &quot;logs in with valid credentials @p0&quot; contains no assertion (expect(...), toHave*, or an assert* page-object method)
+        &gt; test(&#x27;logs in with valid credentials @p0&#x27;, async ({ page }) =&gt; {
+        why A test with no assertion passes as long as nothing throws, so it reports green on a broken feature.
+        fix Add a web-first assertion for the outcome the test is named after.
+
+Summary  1 error, 4 warn</pre></div>
+<div class="grid3">
+  <div class="card"><span class="tag">exit 0</span><p>Clean, or nothing in scope. The commit and the build proceed.</p></div>
+  <div class="card"><span class="tag">exit 1</span><p>Findings that the active profile fails on. This is the gate biting.</p></div>
+  <div class="card"><span class="tag">exit 2</span><p>The gate itself broke. Lesson 11 treats this as "let the work through and say so", never as a finding.</p></div>
+</div>
+<h3>Key takeaways</h3><ul class="take">
+<li>One CLI serves every stage, so no two reports can disagree</li>
+<li>Print <code>why</code> and <code>fix</code> once per rule, not once per finding</li>
+<li>Scope the report, not the scan</li>
+<li>A change with no covered files is a pass, not an excuse to scan everything</li>
+<li>Separate "the gate failed" from "the gate crashed" in the exit code</li>
+</ul>
+<div class="ex"><h3>Exercises</h3><ol>
+<li><span>Add <code>--format json</code> and pipe it into a one-line script that counts findings per rule. You will use it constantly in lesson 12.</span></li>
+<li><span>Run the gate on a branch where you only changed the README. It must report nothing and exit 0.</span></li>
+<li><span>Break your engine on purpose (throw inside a detector) and confirm the CLI exits 2 with a stack trace rather than exiting 1 with a clean report.</span></li>
+</ol></div>
+</section>
+<section id="ch6">
+<div class="chap"><span class="n">06</span><h2>The ai-slop pack</h2></div>
+<p class="chap-sub">Tests that assert nothing, and the difference between a silent catch and a documented one.</p>
+<p>Regex gets you a long way, but not to the most valuable rule in the whole system: <em>does this test assert anything?</em> That needs the body of a <code>test()</code> call, and finding it is fiddlier than it looks.</p>
+<figure class="code"><figcaption>quality/engine/detectors.mjs</figcaption><pre><code data-lang="ts">/**
+ * Finds `pattern(` call sites and, where the call takes a callback, its body.
+ *
+ * The arrow is located at argument depth so a destructured parameter list does
+ * not get mistaken for the body: in `test(&#x27;x&#x27;, async ({ page }) =&gt; { ... })`
+ * the first `{` belongs to `{ page }`, not to the test.
+ */
+export function callSites(file, pattern) {
+    const sites = [];
+    for (const m of file.masked.matchAll(globalize(pattern))) {
+        const open = file.masked.indexOf(&#x27;(&#x27;, m.index + m[0].length - 1);
+        const close = matchParen(file.masked, open);
+
+        let depth = 0, arrow = -1;
+        for (let i = open + 1; i &lt; close; i += 1) {
+            const ch = file.masked[i];
+            if (&#x27;([{&#x27;.includes(ch)) depth += 1;
+            else if (&#x27;)]}&#x27;.includes(ch)) depth -= 1;
+            else if (ch === &#x27;=&#x27; &amp;&amp; file.masked[i + 1] === &#x27;&gt;&#x27; &amp;&amp; depth === 0) { arrow = i; break; }
+        }
+        const block = arrow &lt; 0 ? null : blockAfter(file.masked, arrow);
+        sites.push({ line: file.lineAt(m.index), name: nameOf(file, open, close), body: block?.body ?? null });
+    }
+    return sites;
+}</code></pre></figure>
+<p>Brace counting is only safe because it runs on the masked copy: no braces from strings, comments or template interpolation survive into it. With call sites in hand, the rule is small.</p>
+<figure class="code"><figcaption>rules/ai-slop.rules.mjs</figcaption><pre><code data-lang="ts">{
+    id: &#x27;slop/test-without-assertion&#x27;,
+    title: &#x27;Test asserts nothing&#x27;,
+    severity: &#x27;error&#x27;,
+    detect: &#x27;blockMissing&#x27;,
+    specsOnly: true,
+    options: {
+        call: /\btest(?:\.only|\.fail|\.slow)?\s*\(/,
+        required: /\b(?:expect|assert[A-Z]\w*|toHave\w+)\b/,
+        requiredLabel: &#x27;assertion (expect(...), toHave*, or an assert* page-object method)&#x27;,
+        skipIf: /\btest\.(?:skip|fixme)\b/,
+    },
+    why: &#x27;A test with no assertion passes as long as nothing throws, so it reports green on a broken feature. It is the single most common shape of generated test.&#x27;,
+    fix: &#x27;Add a web-first assertion for the outcome the test is named after, or call a page-object method whose name starts with `assert`.&#x27;,
+}</code></pre></figure>
+<div class="note info"><p><strong>Why this beats <code>playwright/expect-expect</code>, which we turned off in lesson 01.</strong> The <code>required</code> pattern also accepts a page-object method named <code>assertLoaded()</code>. In a framework where assertions legitimately live inside the page object, a rule that only knows <code>expect</code> reports false positives on your best-written specs.</p></div>
+<h3>The empty catch, and a lesson about which copy to read</h3>
+<p>An empty <code>catch</code> turns a red test green. In a suite whose entire job is finding failures, it is the worst line available. The obvious rule:</p>
+<figure class="code"><figcaption>the first attempt</figcaption><pre><code data-lang="ts">options: { pattern: /catch\s*(?:\([^)]*\))?\s*\{\s*\}/ }    // runs on masked code</code></pre></figure>
+<p>It fired twice on code like this, which is not the problem at all:</p>
+<figure class="code"><figcaption>src/utils/CustomReporter.ts</figcaption><pre><code data-lang="ts">try {
+    logContent = fs.readFileSync(attachment.path, &#x27;utf-8&#x27;);
+} catch {
+    // Ignore read errors
+}</code></pre></figure>
+<p>Masking blanks the comment body, so the block <em>looks</em> empty. But a catch that explains itself is the thing we want people to write. Switching the rule to the raw text fixes it, because the comment characters are still there:</p>
+<figure class="code"><figcaption>rules/ai-slop.rules.mjs</figcaption><pre><code data-lang="ts">// Matched against the raw text, not the masked code: a catch whose body holds
+// only `// Ignore read errors` is documented suppression, and the comment is
+// exactly what we want people to write. Only a genuinely empty catch fires.
+options: { target: &#x27;raw&#x27;, pattern: /catch\s*(?:\([^)]*\))?\s*\{\s*\}/ },</code></pre></figure>
+<div class="tw"><table class="rules">
+<thead><tr><th>Rule</th><th>Catches</th><th>Severity</th></tr></thead>
+<tbody>
+<tr><td>slop/test-without-assertion</td><td>a test that cannot fail for its own reason</td><td><span class="sev sev-error">error</span></td></tr>
+<tr><td>slop/constant-assertion</td><td><code>expect(true).toBe(true)</code></td><td><span class="sev sev-error">error</span></td></tr>
+<tr><td>slop/swallowed-error</td><td>a genuinely empty <code>catch</code></td><td><span class="sev sev-error">error</span></td></tr>
+<tr><td>slop/not-implemented</td><td><code>throw new Error('Not implemented')</code> that reached review</td><td><span class="sev sev-error">error</span></td></tr>
+<tr><td>slop/weak-status-assertion</td><td><code>expect(res.status()).toBeTruthy()</code>, true of 500 as well</td><td><span class="sev sev-warn">warn</span></td></tr>
+<tr><td>slop/section-banner-comment</td><td><code>// Arrange</code>, <code>// Act</code>, <code>// Step 1</code></td><td><span class="sev sev-warn">warn</span></td></tr>
+<tr><td>slop/generic-test-title</td><td>"should work", "successfully", "test 3"</td><td><span class="sev sev-warn">warn</span></td></tr>
+<tr><td>slop/duplicate-test-body</td><td>the same test copied with a different literal</td><td><span class="sev sev-warn">warn</span></td></tr>
+<tr><td>slop/tutorial-voice</td><td>"as you can see", "in this example"</td><td><span class="sev sev-info">info</span></td></tr>
+</tbody></table></div>
+<h3>Key takeaways</h3><ul class="take">
+<li>The most valuable rule needs a block, not a line: find call sites and their bodies</li>
+<li>Locate the callback arrow at argument depth, or a destructured parameter list becomes the body</li>
+<li>Brace counting is only safe on the masked copy</li>
+<li>Accept the project’s own assertion idioms, not just <code>expect</code></li>
+<li>A catch that explains itself is documentation; match raw text so the comment saves it</li>
+</ul>
+<div class="ex"><h3>Exercises</h3><ol>
+<li><span>Implement <code>callSites</code> and print every test name in your largest spec with its statement count. Any test whose body is <code>null</code> means your arrow detection is wrong.</span></li>
+<li><span>Add <code>slop/test-without-assertion</code> and run it over your whole suite. Every hit is a test that is currently reporting green on something it never checks.</span></li>
+<li><span>Extend <code>required</code> with your own project’s assertion helpers, then re-run and watch the false positives disappear.</span></li>
+<li><span>Write the empty-catch rule against masked code first, find a documented catch in your repo, then switch it to <code>raw</code> and watch the finding go away.</span></li>
+</ol></div>
+</section>
+<section id="ch7">
+<div class="chap"><span class="n">07</span><h2>The ponytail gate</h2></div>
+<p class="chap-sub">Cutting what the run already records, and the metric that was wrong the first time.</p>
+<p>This framework carries two copies of the same API lifecycle test on purpose. <code>booking-crud.e2e.spec.ts</code> is 73 lines. <code>booking-crud-end-to-end.ponytail.spec.ts</code> covers the same create, update, read-back and delete in 33. Same assertions, both green. The README keeps both so the diff is readable.</p>
+<p>Every cut answered one question: <strong>does anything else in the run already record this?</strong></p>
+<div class="tw"><table>
+<thead><tr><th>Cut</th><th>What already records it</th></tr></thead>
+<tbody>
+<tr><td><code>test.step</code> around a single call</td><td>The trace lists every request, with timings</td></tr>
+<tr><td><code>testInfo.attach</code> of a response body</td><td>The same trace already holds it</td></tr>
+<tr><td>Ten <code>log.info</code> lines</td><td>Each restated its own step name, which is in the HTML report</td></tr>
+<tr><td><code>Date.now()</code> timing</td><td>The trace timeline has every duration</td></tr>
+<tr><td>An explicit token argument</td><td>Omitting it routes through the path that re-auths on a 403</td></tr>
+</tbody></table></div>
+<div class="note warn"><p><strong>The precondition this gate rests on.</strong> All of it depends on <code>playwright.config.ts</code> setting <code>trace: 'on'</code> for every test, not just retries. Turn tracing off and the attachments stop being redundant, and this entire pack should be turned off with it.</p></div>
+<p>Two rules are pure structure and need no judgement at all:</p>
+<figure class="code"><figcaption>rules/ponytail.rules.mjs</figcaption><pre><code data-lang="ts">{
+    id: &#x27;ponytail/step-wraps-single-call&#x27;,
+    title: &#x27;test.step wraps a single statement&#x27;,
+    severity: &#x27;warn&#x27;,
+    detect: &#x27;callWrapsFewStatements&#x27;,
+    specsOnly: true,
+    options: { call: /\btest\.step\s*\(/, maxStatements: 1 },
+    why: &#x27;The trace already shows that call, with its timing and its payload. The wrapper adds a report row and four lines to say it again.&#x27;,
+    fix: &#x27;Drop the wrapper and keep the call. Reserve `test.step` for a group of statements that genuinely reads as one stage.&#x27;,
+}</code></pre></figure>
+<h3>The rule that was wrong, and the fix</h3>
+<p>The interesting one is detecting a comment or a log line that says what the code already says. First attempt: build a word set from each, and compare.</p>
+<figure class="code"><figcaption>the first attempt, which was wrong</figcaption><pre><code data-lang="ts">function overlap(a, b) {
+    let shared = 0;
+    for (const w of a) if (b.has(w)) shared += 1;
+    return shared === 0 ? 0 : shared / Math.min(a.size, b.size);   // &lt;- the bug
+}</code></pre></figure>
+<p>Dividing by the smaller set means a short code line whose two identifiers both appear in a long comment scores 1.0. So the rule reported this, which is the single best line in the file:</p>
+<figure class="code"><figcaption>src/tests/.../booking-crud-end-to-end.ponytail.spec.ts</figcaption><pre><code data-lang="ts">// No token argument: BookingApi re-auths on a 403 and retries. Passing one opts out.
+const updated = await bookingApi.updateBooking(bookingId, buildBookingFromGenerator({ ... }));</code></pre></figure>
+<p>The question is not "do these share words". It is <strong>"does the comment add anything the code does not have"</strong>. That makes the comment the denominator, always.</p>
+<figure class="code"><figcaption>quality/engine/detectors.mjs</figcaption><pre><code data-lang="ts">/**
+ * How much of `prose` the `code` already says - deliberately directional.
+ *
+ * Measured against the comment&#x27;s own word count, `// No token argument: ...`
+ * scores 0.14 and is left alone, while `// click the login button` over
+ * `el.click(loginButton)` scores 1.0 and is reported.
+ */
+function coverage(prose, code) {
+    let shared = 0;
+    for (const w of prose) if (code.has(w)) shared += 1;
+    return prose.size === 0 ? 0 : shared / prose.size;
+}</code></pre></figure>
+<p>One more correction. Comparing against the <em>masked</em> line hid the very words the comment was echoing, because they lived in a string literal:</p>
+<figure class="code"><figcaption>quality/engine/detectors.mjs</figcaption><pre><code data-lang="ts">// Presence of code is decided on the masked line (so a run of comments is
+// skipped), but the comparison uses the raw one. `// click the login button`
+// is echoing `&#x27;#login-button&#x27;`, and masking blanks exactly the literal the
+// comment is repeating.
+if (!file.maskedLines[line - 1]?.trim()) continue;
+if (coverage(prose, words(file.lines[line - 1])) &gt;= minOverlap) { /* report */ }</code></pre></figure>
+<p>With both corrections, the gate agrees with the repository's own written judgement. That is the only evidence that these rules are not one person's taste:</p>
+<p class="run"><b>Run:</b> node quality/gate.mjs --file src/tests/.../booking-crud-end-to-end.ponytail.spec.ts --profile audit</p>
+<div class="out"><div class="out-bar">the 33-line version</div><pre>Quality Gate - audit profile - 1 file scanned
+  no findings</pre></div>
+<p class="run"><b>Run:</b> node quality/gate.mjs --file src/tests/.../booking-crud.e2e.spec.ts --profile audit</p>
+<div class="out"><div class="out-bar">the 73-line twin: exactly the cuts the README documents</div><pre>    13  warn   Log line repeats the step name       ponytail/log-restates-step-name
+    21  warn   Attaches a payload the trace already carries  ponytail/attaches-what-the-trace-holds
+    32  warn   Log line repeats the step name       ponytail/log-restates-step-name
+    42  warn   Attaches a payload the trace already carries  ponytail/attaches-what-the-trace-holds
+
+Summary  4 warn, 1 info</pre></div>
+<div class="note"><p><strong>What this gate never touches.</strong> Every <code>expect</code> survived the rewrite, and three tests stayed three tests because <code>describe.serial</code> reports each stage as its own pass or fail. That is a decision about reporting, not machinery. This pack removes reporting scaffolding, never checks.</p></div>
+<h3>Key takeaways</h3><ul class="take">
+<li>Ask of every line whether the trace, the report or the video already records it</li>
+<li>A gate built on <code>trace: on</code> must be switched off with it</li>
+<li>Directional metrics: the comment is the denominator, so long explanatory comments survive</li>
+<li>Compare prose against the raw line, not the masked one</li>
+<li>Validate a taste rule against a judgement your team already wrote down</li>
+</ul>
+<div class="ex"><h3>Exercises</h3><ol>
+<li><span>Take your longest spec and delete every <code>log</code> line whose text repeats the step name around it. Re-run the spec and open the HTML report. Did you lose any information you actually needed?</span></li>
+<li><span>Implement <code>coverage()</code> with <code>Math.min</code> first. Run it over your repo, find the best comment it flags, then switch to the directional version and watch it disappear.</span></li>
+<li><span>Add <code>ponytail/ceremony-ratio</code>: code lines divided by <code>expect</code> count, budget 14. Which of your specs is mostly scaffolding?</span></li>
+<li><span>Check your <code>playwright.config.ts</code>. If <code>trace</code> is <code>on-first-retry</code>, write down which rules in this pack you must disable and why.</span></li>
+</ol></div>
+</section>
+<section id="ch8">
+<div class="chap"><span class="n">08</span><h2>Seeing across files</h2></div>
+<p class="chap-sub">The import graph, and why one-file scanning cannot find over-engineering.</p>
+<p>"Does anything import this export?" cannot be answered from inside the file that defines it. Neither can "how many callers does this helper have?". Those two questions are most of what over-engineering actually is, so the engine builds a graph of the whole repo before any rule runs.</p>
+<p>Aliases come from <code>tsconfig.json</code> rather than being hard-coded, so the graph cannot drift from what the compiler resolves.</p>
+<figure class="code"><figcaption>quality/engine/repo-index.mjs</figcaption><pre><code data-lang="ts">export function resolveImport(root, fromFile, specifier, aliases) {
+    if (specifier.startsWith(&#x27;.&#x27;)) {
+        return resolveCandidate(root, resolve(dirname(join(root, fromFile)), specifier));
+    }
+    for (const [prefix, target] of Object.entries(aliases)) {       // @pages/ -&gt; src/pages/
+        if (specifier.startsWith(prefix)) {
+            return resolveCandidate(root, join(root, target + specifier.slice(prefix.length)));
+        }
+    }
+    return null;                                    // node_modules: not our business
+}</code></pre></figure>
+<p>One trap is worth knowing before it bites you. A module can be in use without any file importing it:</p>
+<figure class="code"><figcaption>playwright.config.ts</figcaption><pre><code data-lang="ts">reporter: [[&#x27;html&#x27;], [&#x27;list&#x27;], [&#x27;./src/utils/CustomReporter.ts&#x27;]],</code></pre></figure>
+<p>That reporter is very much in use, and a naive "unused export" rule reports it. The index therefore also collects paths named inside string literals:</p>
+<figure class="code"><figcaption>quality/engine/repo-index.mjs</figcaption><pre><code data-lang="ts">for (const str of file.strings) {
+    const normalized = str.value.trim().replace(/^\.\//, &#x27;&#x27;);
+    for (const candidate of byPath.keys()) {
+        if (normalized === candidate || candidate.endsWith(normalized)) stringRefs.add(candidate);
+    }
+}</code></pre></figure>
+<p>With the graph in place the over-engineering rules are almost declarative.</p>
+<figure class="code"><figcaption>rules/over-engineering.rules.mjs</figcaption><pre><code data-lang="ts">{
+    id: &#x27;overeng/unused-export&#x27;,
+    title: &#x27;Export with no importer&#x27;,
+    severity: &#x27;warn&#x27;,
+    detect: &#x27;unusedExport&#x27;,
+    options: {
+        layers: [&#x27;util&#x27;, &#x27;api&#x27;, &#x27;config&#x27;, &#x27;testdata&#x27;, &#x27;page&#x27;],
+        // Types only: an exported interface is often the published return type
+        // of an exported function, so a consumer needs it importable even when
+        // nothing imports it by name today. Values have no such excuse.
+        kinds: [&#x27;const&#x27;, &#x27;let&#x27;, &#x27;var&#x27;, &#x27;function&#x27;, &#x27;class&#x27;],
+    },
+    why: &#x27;Public surface with no consumer. It still has to be read, kept type-correct, and considered on every refactor.&#x27;,
+    fix: &#x27;Delete it, or drop the `export` and keep it module-private until something outside actually needs it.&#x27;,
+}</code></pre></figure>
+<div class="note info"><p><strong>That <code>kinds</code> filter removed 14 of 20 findings.</strong> Before it, every exported interface in the repo was reported. The rule was not detecting over-engineering; it was detecting TypeScript.</p></div>
+<div class="note stop"><p><strong>What this pack deliberately does not flag.</strong> <code>UtilElementLocator</code> is a wrapper whose job is to log every action, and <code>BasePage</code> is one base class one level deep. Both look like indirection and neither is: over-engineering is an abstraction with no consumer, not an abstraction you personally would not have written. Write that distinction into the pack’s header comment, because someone will argue about it.</p></div>
+<h3>Key takeaways</h3><ul class="take">
+<li>Build the import graph before any rule runs; scope the report, never the scan</li>
+<li>Read path aliases from <code>tsconfig.json</code> so the graph matches the compiler</li>
+<li>A module named in a string literal is still in use</li>
+<li>Exclude type exports, or the rule just detects TypeScript</li>
+<li>Name the abstractions that are intentional, in the pack, before someone simplifies them</li>
+</ul>
+<div class="ex"><h3>Exercises</h3><ol>
+<li><span>Build the index and print every export in <code>src/utils/</code> with its importer count. The zeros are your dead surface.</span></li>
+<li><span>Add the <code>stringRefs</code> pass. Remove it again and watch your custom reporter get reported as unused.</span></li>
+<li><span>Implement <code>singleConsumer</code> for modules over 25 lines with exactly one importer. Move one of them next to its caller and see whether anything got worse.</span></li>
+<li><span>Write the "intentional abstractions" note for your own repo. Which two files would a stranger wrongly simplify?</span></li>
+</ol></div>
+</section>
+<section id="ch9">
+<div class="chap"><span class="n">09</span><h2>Your non-negotiables</h2></div>
+<p class="chap-sub">Turning the conventions document nobody enforces into rules that bite.</p>
+<p>Most teams already have this document. In this repo it is <code>.github/copilot-instructions.md</code>, and it opens with nine numbered non-negotiables: specs import from the fixture module, never construct a page object, never hold a locator, and so on. It was accurate, well written, and had no way at all to notice when something ignored it.</p>
+<p>Every rule in this pack carries an <code>nn</code> field naming the item it enforces. A finding then traces back to a sentence instead of to an opinion, which is the difference between a rule you can defend in review and one you cannot.</p>
+<figure class="code"><figcaption>rules/framework-patterns.rules.mjs</figcaption><pre><code data-lang="ts">{
+    id: &#x27;framework/dotenv-in-spec&#x27;,
+    nn: 5,
+    title: &#x27;dotenv.config() called outside @config/env&#x27;,
+    severity: &#x27;error&#x27;,
+    detect: &#x27;regex&#x27;,
+    exclude: [&#x27;src/config/env.ts&#x27;, &#x27;playwright.config.ts&#x27;],
+    options: { pattern: /\bdotenv\.config\s*\(/ },
+    why: &#x27;Non-negotiable 5, and a bug this repo already hit once: imports are hoisted above the call, so any module that reads `process.env` at load time sees nothing. It fails as a missing credential, far from the cause.&#x27;,
+    fix: &#x27;Import `@config/env` instead. Importing it loads `.env` once, before anything reads it.&#x27;,
+}</code></pre></figure>
+<div class="note"><p><strong>The best <code>why</code> in the whole system is that one</strong>, because it names a bug the team actually had. Go through your own incident history before writing this pack. A rule that prevents a failure someone remembers never gets argued with.</p></div>
+<p>Two detectors carry most of this pack. <code>importShape</code> answers "may this layer import that?", and <code>fileMissing</code> answers "does this file never do something it must?".</p>
+<figure class="code"><figcaption>quality/engine/detectors.mjs</figcaption><pre><code data-lang="ts">function importShape(file, rule) {
+    const { forbidSource, requireAliasAcrossLayers, allowNames = [], detail } = rule.options;
+    const found = [];
+    for (const imp of file.imports) {
+        if (forbidSource &amp;&amp; forbidSource.test(imp.source)) {
+            if (imp.names.length &gt; 0 &amp;&amp; imp.names.every((n) =&gt; allowNames.includes(n))) continue;
+            found.push(at(file, imp.line, detail ?? `imports from \`${imp.source}\``));
+            continue;
+        }
+        if (requireAliasAcrossLayers &amp;&amp; /^\.\.\//.test(imp.source)) {
+            const target = imp.source.replace(/^(\.\.\/)+/, &#x27;&#x27;).split(&#x27;/&#x27;)[0];
+            if ([&#x27;pages&#x27;, &#x27;api&#x27;, &#x27;utils&#x27;, &#x27;config&#x27;, &#x27;fixtures&#x27;, &#x27;testdata&#x27;].includes(target)) {
+                found.push(at(file, imp.line, `use \`@${target}/...\` instead of \`${imp.source}\``));
+            }
+        }
+    }
+    return found;
+}</code></pre></figure>
+<p>The exclusions matter as much as the rules. This repo teaches the raw <code>request</code> fixture in <code>apisTests/01_restfulbooker_raw/</code>, so forcing those specs through a UI fixture would destroy the lesson they exist to teach:</p>
+<figure class="code"><figcaption>rules/framework-patterns.rules.mjs</figcaption><pre><code data-lang="ts">{
+    id: &#x27;framework/spec-imports-playwright-test&#x27;,
+    nn: 1,
+    severity: &#x27;error&#x27;,
+    detect: &#x27;importShape&#x27;,
+    specsOnly: true,
+    exclude: [&#x27;src/tests/apisTests/**&#x27;, &#x27;src/tests/aiTest/**&#x27;],
+    options: { forbidSource: /^@playwright\/test$/ },
+    fix: &quot;Import from `@fixtures/test-base`. API specs under `apisTests/` are excluded on purpose, they teach the raw request API.&quot;,
+}</code></pre></figure>
+<div class="note warn"><p><strong>State an exclusion in the rule, never in a reviewer’s head.</strong> An exclusion that lives only in someone’s memory becomes an argument the first time a newcomer trips over the rule.</p></div>
+<div class="tw"><table class="rules">
+<thead><tr><th>Rule</th><th>NN</th><th>What actually breaks</th></tr></thead>
+<tbody>
+<tr><td>framework/spec-imports-playwright-test</td><td>1</td><td>The spec gets none of the fixtures. It has silently left the framework.</td></tr>
+<tr><td>framework/page-object-constructed-in-spec</td><td>2</td><td>Built against a different lifecycle; setup gets repeated by hand.</td></tr>
+<tr><td>framework/locator-in-spec</td><td>3</td><td>Invisible to every other spec. You fix the page object and this still fails.</td></tr>
+<tr><td>framework/page-object-not-extending-base</td><td>4</td><td>No action logging, and <code>goto</code> stops respecting baseURL.</td></tr>
+<tr><td>framework/dotenv-in-spec</td><td>5</td><td>Hoisted imports read <code>process.env</code> before <code>.env</code> loads.</td></tr>
+<tr><td>framework/inline-credential-literal</td><td>6</td><td>A credential in the source is a credential in the git history.</td></tr>
+<tr><td>framework/zod-import</td><td>7</td><td>Not a dependency. Does not install in CI.</td></tr>
+<tr><td>framework/cross-layer-relative-import</td><td>10</td><td><code>../../../api/X</code> breaks the moment either file moves.</td></tr>
+</tbody></table></div>
+<h3>Key takeaways</h3><ul class="take">
+<li>Your conventions document is a rule pack that was never executable</li>
+<li>Tag each rule with the numbered item it enforces</li>
+<li>Write <code>why</code> from a real incident wherever you can</li>
+<li><code>importShape</code> and <code>fileMissing</code> cover most framework rules</li>
+<li>Every deliberate exclusion belongs in the rule, with its reason</li>
+</ul>
+<div class="ex"><h3>Exercises</h3><ol>
+<li><span>Open your team’s conventions doc and number the rules. How many could be a regex over imports? Write those three first.</span></li>
+<li><span>Find a bug your team actually shipped that a convention would have prevented. Write that rule and put the incident in its <code>why</code>.</span></li>
+<li><span>Add <code>framework/cross-layer-relative-import</code> and run it over your repo. Every hit is a file that cannot move without breaking an importer.</span></li>
+<li><span>For each exclusion you add, write one sentence explaining it. If you cannot, the exclusion is probably a rule that is wrong.</span></li>
+</ol></div>
+</section>
+<section id="ch10">
+<div class="chap"><span class="n">10</span><h2>Waivers and budgets</h2></div>
+<p class="chap-sub">Every gate needs an escape hatch. The trick is making it cost something.</p>
+<p>A gate with no escape hatch gets deleted the first time it is wrong. A gate with a free escape hatch gets switched off everywhere and stops existing. The design goal is an exit that is always available and never silent.</p>
+<figure class="code"><figcaption>a waiver</figcaption><pre><code data-lang="ts">// gate-allow ponytail/attaches-what-the-trace-holds -- the diff is computed here, the trace has neither side
+await testInfo.attach(&#x27;shape-diff&#x27;, { body: diff });</code></pre></figure>
+<p>The rule about the rules: <strong>a waiver with no reason is itself an error.</strong> The runner emits it as a finding, from the engine rather than from any pack.</p>
+<figure class="code"><figcaption>quality/engine/run.mjs</figcaption><pre><code data-lang="ts">if (waiver.reason.length &lt; MIN_REASON) {
+    unexplained.push({
+        ruleId: &#x27;gate/unexplained-waiver&#x27;,
+        severity: &#x27;error&#x27;,
+        title: &#x27;Waiver without a reason&#x27;,
+        why: &#x27;A gate that can be switched off silently stops being a gate. The reason is what a reviewer reads six months later.&#x27;,
+        fix: `Write \`// gate-allow ${waiver.target} -- &lt;why this case is genuinely different&gt;\` (at least ${MIN_REASON} characters).`,
+        file: file.path, line: waiver.line,
+    });
+}</code></pre></figure>
+<p>Waived findings are still listed in the report, under their reasons, instead of disappearing. Suppression you cannot see is indistinguishable from a rule that never ran.</p>
+<figure class="code"><figcaption>quality/engine/run.mjs</figcaption><pre><code data-lang="ts">const waiver = waivers.find((w) =&gt;
+    waiverCovers(w, finding) &amp;&amp;
+    w.reason.length &gt;= MIN_REASON &amp;&amp;
+    (w.fileWide || Math.abs(w.line - finding.line) &lt;= 1));
+if (waiver) waived.push({ ...finding, reason: waiver.reason });
+else raw.push(finding);</code></pre></figure>
+<h3>Budgets</h3>
+<p>Errors block. Warnings are judgement calls, and the honest position on a judgement call is that a few are fine and thirty are not. That is a budget, counted per change:</p>
+<figure class="code"><figcaption>quality/engine/run.mjs</figcaption><pre><code data-lang="ts">for (const [gate, budget] of Object.entries(profile.budgets ?? {})) {
+    for (const severity of SEVERITIES) {
+        const limit = budget[severity];
+        const actual = perGate[gate]?.[severity] ?? 0;
+        if (limit !== undefined &amp;&amp; actual &gt; limit) breaches.push({ gate, severity, limit, actual });
+    }
+}
+const failing = (profile.fail ?? [&#x27;error&#x27;]).some((s) =&gt; counts[s] &gt; 0) || breaches.length &gt; 0;</code></pre></figure>
+<div class="out"><div class="out-bar">Output</div><pre>Quality Gate - ci profile - 2 changed files checked - 4 error, 14 warn
+
+  ai-slop              1 error, 5 warn, 0 info
+  framework-patterns   3 error, 0 warn, 0 info
+  ponytail             0 error, 9 warn, 0 info
+
+  budget: ponytail allows 8 warn per change, found 9
+
+gate failed</pre></div>
+<div class="grid3">
+  <div class="card"><span class="tag">error</span><p>Blocks an agent edit, a commit and the pull request. Thirteen rules out of forty-six.</p></div>
+  <div class="card"><span class="tag">warn</span><p>A judgement call. Printed everywhere, counted against the per-change budget on the PR.</p></div>
+  <div class="card"><span class="tag">info</span><p>A prompt to look. Never blocks anything, ever.</p></div>
+</div>
+<h3>Key takeaways</h3><ul class="take">
+<li>Always provide an escape hatch, and never let it be silent</li>
+<li>A waiver without a reason is an error in its own right</li>
+<li>List waived findings with their reasons instead of hiding them</li>
+<li>Budget warnings per change, not per repository</li>
+<li>Thirteen blocking rules out of forty-six is a workable ratio; start lower</li>
+</ul>
+<div class="ex"><h3>Exercises</h3><ol>
+<li><span>Implement waivers with the reason requirement. Add a bare <code>// gate-allow</code> and confirm the gate reports it as an error.</span></li>
+<li><span>Add a real waiver to a real finding in your repo. Read the reason you wrote. Would it convince you in six months?</span></li>
+<li><span>Set your <code>ci</code> budgets one below your current worst branch, then open a PR and watch it fail. Tune from evidence, not from a guess.</span></li>
+<li><span>Make <code>gate-allow-file</code> work for the whole file and decide, in writing, which rules may never be waived file-wide.</span></li>
+</ol></div>
+</section>
+<section id="ch11">
+<div class="chap"><span class="n">11</span><h2>Pre-generation hooks</h2></div>
+<p class="chap-sub">Where this stops being a linter and starts shaping the code as it is written.</p>
+<p>Everything so far reports on code that already exists. The interesting move is to put the gate inside the loop that writes it. Claude Code fires hooks around its own tool calls, each reading one JSON object on stdin and answering with an exit code: <code>0</code> lets the action through, <code>2</code> blocks it and hands stderr back to the model as feedback to act on.</p>
+<figure class="diagram">
+<svg viewBox="0 0 760 260" role="img" aria-label="Four hook points: prompt submitted, before write, after write, before commit, then the pull request">
+  <defs><marker id="a3" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse"><path d="M0 0L10 5L0 10z" fill="#13294B"/></marker></defs>
+  <g font-family="IBM Plex Sans, sans-serif" font-size="12.5" fill="#13294B">
+    <rect x="10" y="16" width="150" height="46" rx="8" fill="#F0E8FA" stroke="#7A3FC4" stroke-width="1.5"/>
+    <text x="85" y="36" text-anchor="middle" font-weight="600">prompt submitted</text>
+    <text x="85" y="53" text-anchor="middle" font-size="11" fill="#5F7090">inject 13 blocking rules</text>
+    <path d="M85 66v22" stroke="#13294B" stroke-width="2" marker-end="url(#a3)"/>
+
+    <rect x="10" y="92" width="150" height="46" rx="8" fill="#FFF5E1" stroke="#D98E1F" stroke-width="1.5"/>
+    <text x="85" y="112" text-anchor="middle" font-weight="600">before Write</text>
+    <text x="85" y="129" text-anchor="middle" font-size="11" fill="#5F7090">right layer? else deny</text>
+    <path d="M166 115h34" stroke="#13294B" stroke-width="2" marker-end="url(#a3)"/>
+
+    <rect x="206" y="92" width="150" height="46" rx="8" fill="#E4F4EB" stroke="#1E8A5A" stroke-width="1.5"/>
+    <text x="281" y="112" text-anchor="middle" font-weight="600">after Write / Edit</text>
+    <text x="281" y="129" text-anchor="middle" font-size="11" fill="#5F7090">gate that file, 0.14s</text>
+
+    <path d="M281 142v30" stroke="#D64545" stroke-width="2" stroke-dasharray="5 4" marker-end="url(#a3)"/>
+    <rect x="186" y="176" width="190" height="44" rx="8" fill="#FBE9E9" stroke="#D64545" stroke-width="1.5"/>
+    <text x="281" y="196" text-anchor="middle" font-weight="600" fill="#D64545">error: exit 2</text>
+    <text x="281" y="212" text-anchor="middle" font-size="11" fill="#5F7090">findings go back to the model</text>
+    <path d="M186 198 C 120 198, 120 160, 281 150" stroke="#D64545" stroke-width="1.5" fill="none" stroke-dasharray="4 4"/>
+    <text x="96" y="176" font-size="11" fill="#D64545">fixed in the same turn</text>
+
+    <path d="M362 115h34" stroke="#13294B" stroke-width="2" marker-end="url(#a3)"/>
+    <rect x="402" y="92" width="150" height="46" rx="8" fill="#E7EFFC" stroke="#2A66D6" stroke-width="1.5"/>
+    <text x="477" y="112" text-anchor="middle" font-weight="600">before git commit</text>
+    <text x="477" y="129" text-anchor="middle" font-size="11" fill="#5F7090">gate + ESLint, staged</text>
+
+    <path d="M558 115h34" stroke="#13294B" stroke-width="2" marker-end="url(#a3)"/>
+    <rect x="598" y="92" width="150" height="46" rx="8" fill="#fff" stroke="#13294B" stroke-width="1.5"/>
+    <text x="673" y="112" text-anchor="middle" font-weight="600">pull request</text>
+    <text x="673" y="129" text-anchor="middle" font-size="11" fill="#5F7090">changed files, budgets</text>
+  </g>
+</svg>
+<figcaption>Four chances to stop the same mistake. The earliest one costs a few hundred tokens; the last one costs a review cycle.</figcaption>
+</figure>
+<p>The cheapest hook is the first. Telling the model the rules before it writes costs a few hundred tokens; letting it generate a spec, blocking the edit, and having it rewrite the file costs a whole turn.</p>
+<figure class="code"><figcaption>.claude/hooks/inject-rules.mjs</figcaption><pre><code data-lang="ts">const VERB = /\b(?:write|generate|create|add|build|refactor|implement|fix|update)\b/i;
+const NOUN = /\b(?:test|spec|page object|pom|fixture|locator|assertion|suite|helper|playwright)\b/i;
+
+if (!(VERB.test(prompt) &amp;&amp; NOUN.test(prompt))) process.exit(0);
+
+// Only the `error` rules. Injecting all 46 would bury the 13 that actually block.
+const blocking = rules.split(&#x27;\n&#x27;).filter((line) =&gt; line.includes(&#x27;[error]&#x27;));
+
+process.stdout.write(JSON.stringify({
+    hookSpecificOutput: { hookEventName: &#x27;UserPromptSubmit&#x27;, additionalContext: context },
+}));</code></pre></figure>
+<p>The hook that runs after every write is the one that changes behaviour. It scopes the report to the single file and blocks only on errors, so contract breaks are fixed immediately while the judgement calls are shown as advice.</p>
+<figure class="code"><figcaption>.claude/hooks/gate-on-edit.mjs</figcaption><pre><code data-lang="ts">const rel = repoPath(root, input.tool_input?.file_path);
+if (!isCovered(rel)) process.exit(0);
+
+const { ok, output, error } = runGate(root, [&#x27;--file&#x27;, rel, &#x27;--profile&#x27;, &#x27;hook&#x27;, &#x27;--format&#x27;, &#x27;hook&#x27;]);
+
+if (error) {
+    // A broken gate must not become a broken edit loop. Say so and move on.
+    process.stderr.write(`quality gate could not run: ${error}\n`);
+    process.exit(0);
+}
+
+if (!ok) {
+    block([
+        `Quality gate blocked this edit to ${rel}:`, &#x27;&#x27;, output, &#x27;&#x27;,
+        &#x27;Fix the errors above and re-apply the edit. If a finding is genuinely wrong for this case,&#x27;,
+        &#x27;add `// gate-allow &lt;rule-id&gt; -- &lt;reason&gt;` on the line and say why in your reply.&#x27;,
+    ].join(&#x27;\n&#x27;));       // writes stderr, exits 2
+}</code></pre></figure>
+<div class="out"><div class="out-bar">what the model receives on stderr, exit code 2</div><pre>Quality gate blocked this edit to src/tests/demo.spec.ts:
+
+src/tests/demo.spec.ts:1  [error] framework/spec-imports-playwright-test - UI spec imports @playwright/test directly
+    &gt; import { test, expect } from &#x27;@playwright/test&#x27;;
+    fix: Import from `@fixtures/test-base`: `import { test, expect } from &#x27;@fixtures/test-base&#x27;;`
+src/tests/demo.spec.ts:14  [error] slop/test-without-assertion - Test asserts nothing
+    &quot;should work correctly&quot; contains no assertion (expect(...), toHave*, or an assert* page-object method)
+    fix: Add a web-first assertion for the outcome the test is named after.
+src/tests/demo.spec.ts:17  [error] framework/locator-in-spec - Locator defined in a spec
+    &gt; await page.locator(&#x27;#login-button&#x27;).click();
+    fix: Move it into the matching `src/pages/*.ts` as a `private readonly` field.</pre></div>
+<div class="note warn"><p><strong>ESLint is deliberately absent from this hook.</strong> A type-aware lint of one file costs about 2.2 seconds; the engine costs 0.14. Paying two seconds on every edit buys nothing the engine has not already caught, so ESLint runs at commit time and in CI, where two seconds is free. Measure both before you decide; the obvious version of this system runs everything everywhere and is abandoned in a week.</p></div>
+<figure class="code"><figcaption>.claude/settings.json</figcaption><pre><code data-lang="text">{
+  &quot;hooks&quot;: {
+    &quot;UserPromptSubmit&quot;: [
+      { &quot;hooks&quot;: [{ &quot;type&quot;: &quot;command&quot;, &quot;command&quot;: &quot;node \&quot;$CLAUDE_PROJECT_DIR/.claude/hooks/inject-rules.mjs\&quot;&quot;, &quot;timeout&quot;: 10 }] }
+    ],
+    &quot;PreToolUse&quot;: [
+      { &quot;matcher&quot;: &quot;Write&quot;, &quot;hooks&quot;: [{ &quot;type&quot;: &quot;command&quot;, &quot;command&quot;: &quot;node \&quot;$CLAUDE_PROJECT_DIR/.claude/hooks/guard-file-placement.mjs\&quot;&quot;, &quot;timeout&quot;: 10 }] },
+      { &quot;matcher&quot;: &quot;Bash&quot;,  &quot;hooks&quot;: [{ &quot;type&quot;: &quot;command&quot;, &quot;command&quot;: &quot;node \&quot;$CLAUDE_PROJECT_DIR/.claude/hooks/gate-on-commit.mjs\&quot;&quot;, &quot;timeout&quot;: 60 }] }
+    ],
+    &quot;PostToolUse&quot;: [
+      { &quot;matcher&quot;: &quot;Write|Edit|MultiEdit&quot;, &quot;hooks&quot;: [{ &quot;type&quot;: &quot;command&quot;, &quot;command&quot;: &quot;node \&quot;$CLAUDE_PROJECT_DIR/.claude/hooks/gate-on-edit.mjs\&quot;&quot;, &quot;timeout&quot;: 20 }] }
+    ]
+  }
+}</code></pre></figure>
+<p>The <code>PreToolUse</code> guard on <code>Write</code> handles the one thing that cannot be fixed by editing the file afterwards: its location. A spec written next to a page object runs under the wrong Playwright project, against the wrong baseURL, or is never collected at all. That is a hard deny with a reason, and it is kept to rules with no judgement in them.</p>
+<p>Commits that do not come from an agent need the same treatment, which is fifteen lines of shell and no new dependency:</p>
+<figure class="code"><figcaption>.githooks/pre-commit</figcaption><pre><code data-lang="sh">STAGED=$(git diff --cached --name-only --diff-filter=ACMR | grep -E &#x27;^(src/.*\.ts|playwright\.config\.ts)$&#x27; || true)
+[ -z &quot;$STAGED&quot; ] &amp;&amp; exit 0
+
+node quality/gate.mjs --staged --profile commit || {
+    echo &quot;Commit blocked. Fix the errors above, or run &#x27;git commit --no-verify&#x27; if you have a reason.&quot;
+    exit 1
+}
+./node_modules/.bin/eslint --no-warn-ignored $STAGED</code></pre></figure>
+<h3>Key takeaways</h3><ul class="take">
+<li>A hook reads JSON on stdin and answers with an exit code; 2 blocks and feeds stderr back</li>
+<li>The cheapest gate is the one that runs before generation, not after</li>
+<li>Inject only the blocking rules, or you bury them</li>
+<li>Block on errors, print warnings: fix contract breaks now, show taste findings as advice</li>
+<li>A gate that crashes must let the work through, never block on its own bug</li>
+<li>Enforce file placement before the write; everything else can be fixed after</li>
+</ul>
+<div class="ex"><h3>Exercises</h3><ol>
+<li><span>Wire <code>gate-on-edit.mjs</code> and ask your agent to write a spec that imports <code>@playwright/test</code> directly. Watch it correct itself without you saying anything.</span></li>
+<li><span>Time both tools on one file: <code>time npx eslint &lt;file&gt;</code> against <code>time node quality/gate.mjs --file &lt;file&gt;</code>. Decide from your own numbers which belongs in the edit loop.</span></li>
+<li><span>Break your engine on purpose and confirm the hook exits 0 with a message rather than blocking every edit in the session.</span></li>
+<li><span>Add the <code>.githooks/pre-commit</code> script and <code>git config core.hooksPath .githooks</code>. Try to commit a spec with no assertion.</span></li>
+</ol></div>
+</section>
+<section id="ch12">
+<div class="chap"><span class="n">12</span><h2>The PR gate, and shipping it</h2></div>
+<p class="chap-sub">Calibration, a selftest, and how to switch this on without everyone hating you.</p>
+<p>The workflow scopes to changed files, posts one comment it edits in place, and fails the build on an error or a budget breach. Two steps in it are easy to skip and both matter.</p>
+<figure class="code"><figcaption>.github/workflows/quality-gate.yml</figcaption><pre><code data-lang="text">- uses: actions/checkout@v4
+  with:
+    # The gate reports on what the pull request changed, which needs the base
+    # branch present to find a merge base. The default shallow checkout has none.
+    fetch-depth: 0
+
+- name: Prove the gate still works
+  run: node quality/selftest.mjs
+
+- name: ESLint (changed files)
+  run: echo &quot;${{ steps.changed.outputs.files }}&quot; | tr &#x27;\n&#x27; &#x27;\0&#x27; | xargs -0 -r npx eslint --no-warn-ignored
+
+- name: Quality gate
+  run: node quality/gate.mjs --changed --profile ci --format markdown --out gate-report.md</code></pre></figure>
+<p>The comment is found by a marker in its own body and updated rather than appended. A gate that posts a new comment on every push trains people to collapse the thread.</p>
+<figure class="code"><figcaption>.github/workflows/quality-gate.yml</figcaption><pre><code data-lang="ts">const marker = &#x27;&lt;!-- quality-gate-report --&gt;&#x27;;
+const existing = comments.find((c) =&gt; c.body.includes(marker));
+if (existing) await github.rest.issues.updateComment({ ...ctx, comment_id: existing.id, body });
+else await github.rest.issues.createComment({ ...ctx, issue_number: context.issue.number, body });</code></pre></figure>
+<h3>Calibration: the part that decides whether this survives</h3>
+<p>The first full run over this repository produced <strong>174 findings</strong>. Reading all of them found three rules that were wrong, not a hundred and seventy-four problems.</p>
+<div class="tw"><table>
+<thead><tr><th>Symptom</th><th>Root cause</th><th>Fix</th></tr></thead>
+<tbody>
+<tr><td class="num">67</td><td>Emoji findings, all in one file: a reporter that renders a console and HTML report</td><td>Excluded by name, with the reason in the rule</td></tr>
+<tr><td class="num">14</td><td>Every exported interface reported as unused surface</td><td>Restrict the rule to value exports</td></tr>
+<tr><td class="num">11</td><td>Explanatory comments flagged as narration, including the best one in the repo</td><td>Make the comment the denominator</td></tr>
+<tr><td class="num">5</td><td>The logging wrapper told to stop logging</td><td>Scope the rule to the layers the trace covers</td></tr>
+</tbody></table></div>
+<p>That took it to <strong>73</strong>, which were read individually and are real.</p>
+<div class="note"><p><strong>Prefer narrowing a rule’s scope over adding an exclusion.</strong> An exclusion says "not here". A scope says "here is where the premise holds". The ponytail fix was the better one for exactly this reason: the trace does not record what a helper does internally, so the rule never belonged in the util layer at all.</p></div>
+<h3>A gate with no test of its own</h3>
+<p>...is the thing these rules exist to catch. Two fixtures: one written the way a model writes a spec when nobody is watching, one written the way the framework documents. The first must produce a named list of findings; the second must produce none.</p>
+<figure class="code"><figcaption>quality/selftest.mjs</figcaption><pre><code data-lang="ts">const CASES = [
+    {
+        fixture: &#x27;slop-spec.fixture.txt&#x27;,
+        as: &#x27;src/tests/demo/slop.spec.ts&#x27;,      // the pretend path decides the layer
+        expect: [
+            &#x27;framework/spec-imports-playwright-test&#x27;,
+            &#x27;framework/page-object-constructed-in-spec&#x27;,
+            &#x27;framework/locator-in-spec&#x27;,
+            &#x27;slop/test-without-assertion&#x27;,
+            &#x27;slop/swallowed-error&#x27;,
+            &#x27;ponytail/step-wraps-single-call&#x27;,
+            // ...18 in total
+        ],
+    },
+    { fixture: &#x27;clean-spec.fixture.txt&#x27;, as: &#x27;src/tests/demo/clean.spec.ts&#x27;, expect: [] },
+];</code></pre></figure>
+<p class="run"><b>Run:</b> node quality/selftest.mjs</p>
+<div class="out"><div class="out-bar">Output</div><pre>slop-spec.fixture.txt as src/tests/demo/slop.spec.ts
+  pass  framework/spec-imports-playwright-test fires
+  pass  framework/locator-in-spec fires
+  pass  slop/test-without-assertion fires
+  pass  slop/swallowed-error fires
+  pass  ponytail/step-wraps-single-call fires
+  ...
+
+clean-spec.fixture.txt as src/tests/demo/clean.spec.ts
+  pass  clean fixture produces no findings
+
+selftest passed</pre></div>
+<div class="note info"><p><strong>The fixtures are <code>.txt</code> on purpose</strong>, so neither <code>tsc</code> nor ESLint tries to compile deliberately broken code. They are read with a pretend repo-relative path, and that path is what decides their layer.</p></div>
+<h3>Switching it on</h3>
+<p>A gate switched on across a suite that predates it fails immediately, and the first response is always to weaken the gate. Introduce it on changed files only, and write the baseline down so it is paid off deliberately rather than discovered:</p>
+<div class="tw"><table>
+<thead><tr><th>Check</th><th class="num">Errors</th><th class="num">Warnings</th><th>Note</th></tr></thead>
+<tbody>
+<tr><td><code>gate --all</code></td><td class="num">7</td><td class="num">57</td><td>every one read by hand during calibration</td></tr>
+<tr><td><code>eslint src</code></td><td class="num">13</td><td class="num">21</td><td>9 auto-fixable with <code>--fix</code></td></tr>
+<tr><td><code>tsc --noEmit</code></td><td class="num">0</td><td class="num">0</td><td>clean</td></tr>
+</tbody></table></div>
+<p>So <code>npm run lint</code> and <code>npm run gate</code> do not pass on the whole repository, and that is the honest state rather than a bug. What matters is that a pull request cannot add to either number. Pay it down file by file as you touch them; a sweep that reformats forty files to get one number to zero is a review problem, not an improvement.</p>
+<h3>Key takeaways</h3><ul class="take">
+<li>Scope CI to changed files, or the gate fails on day one and is deleted by day three</li>
+<li>Run the selftest in CI before trusting the gate’s verdict</li>
+<li>One pull request comment, edited in place</li>
+<li>Read every finding of the first full run; a rule firing 67 times has found a class it does not understand</li>
+<li>Scope beats exclusion</li>
+<li>Write the baseline down instead of sweeping it</li>
+</ul>
+<div class="ex"><h3>Exercises</h3><ol>
+<li><span>Run your gate over your whole repo and read every finding. Group them by rule and fix the rules, not the code.</span></li>
+<li><span>Build the two fixtures and the selftest. Add one rule id at a time until every rule you own is covered.</span></li>
+<li><span>Add the workflow and open a deliberately bad pull request. The comment should tell you what to do without opening the job log.</span></li>
+<li><span>Write your adoption baseline into your README. Three numbers and one sentence about who pays them down.</span></li>
+<li><span>Six weeks later: which rule has been waived the most? Either its <code>why</code> is weak or the rule is wrong. Fix whichever it is.</span></li>
+</ol></div>
+</section>
+<section id="next">
+<h2>What comes next</h2>
+<p>Forty-six rules, four gates, four firing points, and a selftest. The parts worth extending, roughly in order of value:</p>
+<div class="grid2">
+  <div class="card"><h4>Package the judgement, not just the rules</h4><p>A rule says a comment restates the code. It cannot say what the gate <em>cannot</em> see: assertions that cannot fail, a title and body that disagree, coverage theatre. That belongs in a skill your agent loads by task, next to the rule pack.</p></div>
+  <div class="card"><h4>Rules from your own incidents</h4><p>The strongest rule in this system names a bug the team actually had. Read your last ten postmortems and write one rule per preventable one.</p></div>
+  <div class="card"><h4>Track waivers over time</h4><p>The most-waived rule is either badly explained or wrong. A weekly count tells you which rules are earning their place.</p></div>
+  <div class="card"><h4>Extend the detectors, carefully</h4><p>Twelve detectors cover forty-six rules. Before writing a thirteenth, check the idea really cannot be expressed with the ones you have.</p></div>
+</div>
+<p class="mini" style="margin-top:20px">The full implementation this guide is drawn from lives in <code>quality/</code> and <code>rules/</code> of AdvancePlaywrightFramework2x, with the design notes in <code>docs/QUALITY-GATES.md</code> and the runnable exercises in <code>exercises/</code>.</p>
+</section>
+
+</main>
+</div>
+
+<footer>
+  <div class="foot-in">
+    <div>
+      <a class="brand" href="https://thetestingacademy.com"><i></i>The Testing Academy</a>
+      <p>Quality Gates for Playwright, a study guide by Pramod Dutta. Made for testers shipping AI-generated code.</p>
+    </div>
+    <p><a href="https://thetestingacademy.com">thetestingacademy.com</a> &nbsp; <a href="https://www.youtube.com/@TheTestingAcademy">YouTube @TheTestingAcademy</a> &nbsp; <a href="https://sdet.live/ai-course">AI course: sdet.live/ai-course</a></p>
+  </div>
+</footer>
+
+<script>
+(function () {
+  var esc = function (s) { return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;'); };
+  var TS = /(`(?:\\.|[^`\\])*`|"(?:\\.|[^"\\\n])*"|'(?:\\.|[^'\\\n])*'|\/\/[^\n]*|\/\*[\s\S]*?\*\/|\b(?:import|from|export|const|let|var|function|return|if|else|for|while|of|in|new|async|await|try|catch|finally|class|interface|type|typeof|as|null|undefined|true|false|void|extends|implements)\b|\b\d+(?:\.\d+)?\b)/g;
+  var SH = /(#[^\n]*)/g;
+
+  function paint(code) {
+    var lang = code.getAttribute('data-lang') || 'ts';
+    if (lang === 'text') return;
+    var re = lang === 'sh' ? SH : TS;
+    var src = code.textContent, out = '', last = 0, m;
+    re.lastIndex = 0;
+    while ((m = re.exec(src))) {
+      out += esc(src.slice(last, m.index));
+      var t = m[0], cls;
+      if (t.charAt(0) === '#' || t.slice(0, 2) === '//' || t.slice(0, 2) === '/*') cls = 'hc';
+      else if (/^["'`]/.test(t)) cls = 'hs';
+      else if (/^\d/.test(t)) cls = 'hn';
+      else cls = 'hk';
+      out += '<span class="' + cls + '">' + esc(t) + '</span>';
+      last = m.index + t.length;
+    }
+    out += esc(src.slice(last));
+    code.innerHTML = out;
+  }
+  Array.prototype.forEach.call(document.querySelectorAll('pre code'), paint);
+
+  Array.prototype.forEach.call(document.querySelectorAll('.code'), function (box) {
+    var btn = document.createElement('button');
+    btn.className = 'copy'; btn.type = 'button'; btn.textContent = 'Copy';
+    btn.addEventListener('click', function () {
+      var text = box.querySelector('code').textContent;
+      var done = function () { btn.textContent = 'Copied'; setTimeout(function () { btn.textContent = 'Copy'; }, 1500); };
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(text).then(done, function () { fallback(text); done(); });
+      } else { fallback(text); done(); }
+    });
+    box.appendChild(btn);
+  });
+  function fallback(text) {
+    var ta = document.createElement('textarea');
+    ta.value = text; ta.setAttribute('readonly', ''); ta.style.position = 'fixed'; ta.style.opacity = '0';
+    document.body.appendChild(ta); ta.select();
+    try { document.execCommand('copy'); } catch (e) {}
+    document.body.removeChild(ta);
+  }
+
+  var links = Array.prototype.slice.call(document.querySelectorAll('.toc a'));
+  var byId = {};
+  links.forEach(function (a) { byId[a.getAttribute('href').slice(1)] = a; });
+  if ('IntersectionObserver' in window) {
+    var io = new IntersectionObserver(function (entries) {
+      entries.forEach(function (e) {
+        if (e.isIntersecting) {
+          links.forEach(function (a) { a.classList.remove('active'); });
+          var a = byId[e.target.id]; if (a) a.classList.add('active');
+        }
+      });
+    }, { rootMargin: '-20% 0px -70% 0px' });
+    Array.prototype.forEach.call(document.querySelectorAll('main section[id]'), function (s) { io.observe(s); });
+  }
+})();
+</script>
+</body>
+</html>

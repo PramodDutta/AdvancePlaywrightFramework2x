@@ -211,6 +211,22 @@ have to read for (assertions that cannot fail, a title and body that disagree,
 coverage theatre), and what must never be "simplified" (`UtilElementLocator`,
 `BasePage`).
 
+## Learning it
+
+[`quality-gates-tutorial.html`](quality-gates-tutorial.html) next to this file is a twelve-lesson
+study guide that builds the whole system from nothing, in the order it was actually built: the masked
+lexer first, then rules as data, then the four packs, then waivers and budgets, then the hooks, then
+CI. It carries the mistakes as well as the result, including the overlap metric that was wrong and
+the glob translator that reported a clean repo because it matched nothing.
+
+`exercises/` is the runnable half. Lessons 03, 04, 07 and 08 are stubs checked against the real
+engine and the real import graph; the rest check the artifact each lesson adds to the repo.
+
+```bash
+npm run exercises          # 8 passing, 4 to do, 0 failing on a clean clone
+npm run exercises -- 07
+```
+
 ## Adding a rule
 
 See `.claude/skills/quality-rule-author/SKILL.md`. In short: add the rule to a

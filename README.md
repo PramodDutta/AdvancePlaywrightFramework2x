@@ -930,6 +930,23 @@ from ESLint, all in code that predates them. The pull request gate runs on **cha
 a change cannot add to either number while the baseline is paid down file by file. Full write-up in
 [`docs/QUALITY-GATES.md`](docs/QUALITY-GATES.md).
 
+### Learning it: the tutorial and the exercises
+
+[`docs/quality-gates-tutorial.html`](docs/quality-gates-tutorial.html) is a twelve-lesson study guide
+that builds this system from nothing: the masked lexer, rules as data, the four packs, waivers and
+budgets, the hooks, and the PR gate. Open it in a browser.
+
+`exercises/` is the part you run. Four lessons have stubs that are checked against the real engine
+and real repository data; the other eight check the artifact the lesson adds to the repo.
+
+```bash
+npm run exercises          # mark every lesson
+npm run exercises -- 04    # mark one
+```
+
+A fresh clone reports **8 passing, 4 to do**. The eight pass because the reference implementation is
+already here; the four are stubs waiting for you. Nothing in that output is a failure.
+
 ## Project Structure
 
 ```
@@ -963,6 +980,13 @@ a change cannot add to either number while the baseline is paid down file by fil
 │       ├── detectors.mjs  # 12 primitives a rule can be built from
 │       ├── run.mjs        # Rule loading, scoping, waivers, budgets
 │       └── report.mjs     # console / hook / markdown / json
+├── exercises/             # The tutorial's twelve lessons, runnable
+│   ├── check.mjs          # node exercises/check.mjs [lesson]
+│   ├── 03-lexer/          # stubs checked against the real engine
+│   ├── 04-first-rule/
+│   ├── 07-ponytail/
+│   ├── 08-cross-file/
+│   └── NN-*/TASK.md       # one task sheet per lesson
 ├── rules/                 # The rules, as data
 │   ├── ai-slop.rules.mjs
 │   ├── ponytail.rules.mjs
@@ -972,6 +996,7 @@ a change cannot add to either number while the baseline is paid down file by fil
 ├── docs/
 │   ├── assets/                  # Diagrams and report screenshots used by this README
 │   ├── QUALITY-GATES.md         # The four gates: design, calibration, adoption
+│   ├── quality-gates-tutorial.html  # Twelve-lesson study guide for the gates
 │   ├── Playwright-Worker.md     # Parallel workers: measured timings, RAM per worker
 │   ├── ai-factory.prompt.md     # Brief for adding the LLM agent layer
 │   └── postman_api_collection/  # Restful Booker collection, incl. PATCH/DELETE

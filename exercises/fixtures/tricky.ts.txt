@@ -1,0 +1,11 @@
+// never call page.waitForTimeout in a spec
+const message = 'replacing page.waitForTimeout with a poll';
+await page.waitForTimeout(2000);
+
+const ratio = total / count;      // a division, not a regex
+const doubleSlash = /\/\//;       // a regex containing what looks like a comment
+const stillCode = 'after the regex';
+
+/* a block comment
+   spanning lines, mentioning page.pause() */
+page.pause();

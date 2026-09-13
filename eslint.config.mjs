@@ -127,6 +127,16 @@ export default tseslint.config(
         },
     },
 
+    // Exercise stubs ship with their parameters unused on purpose: the signature
+    // is the contract the learner implements against, and deleting the names to
+    // satisfy the linter would delete the exercise.
+    {
+        files: ['exercises/**/*.mjs'],
+        rules: {
+            'no-unused-vars': ['error', { args: 'none', varsIgnorePattern: '^_' }],
+        },
+    },
+
     // The AI demo specs exist to misbehave: FlakyDemo is deterministically
     // flaky by design, SelfHealDemo branches on whether a locator died and
     // asserts inside the branch. `quality/gate.config.mjs` excludes this

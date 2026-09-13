@@ -1,0 +1,12 @@
+import { test, expect } from '@fixtures/test-base';
+
+test('checks the cart badge after adding one item', async ({ loginWithSelectedItem, cartPage }) => {
+    // gate-allow ponytail/attaches-what-the-trace-holds -- the diff is computed here, the trace holds neither side
+    await testInfo.attach('shape-diff', { body: 'computed' });
+
+    // gate-allow slop/weak-status-assertion
+    expect(response.status()).toBeTruthy();
+
+    await cartPage.open();
+    await expect(cartPage.badge()).toHaveText('1');
+});
