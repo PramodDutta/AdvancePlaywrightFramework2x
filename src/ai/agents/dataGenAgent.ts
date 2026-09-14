@@ -36,7 +36,7 @@ const SYSTEM =
 export const dataGenAgent = createAgent<DataGenInput, GeneratedBookings>({
     name: 'data-generator',
     system: SYSTEM,
-    schema: schema as object,
+    schema,
     // Slight temperature: at 0 the model returns the same names every run,
     // which defeats the point of generating varied data.
     temperature: 0.7,

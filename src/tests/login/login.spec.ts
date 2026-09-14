@@ -9,13 +9,14 @@ test.describe('TTACart - Login', () => {
 
     test.beforeEach(async ({ page }) => {
         loginPage = new LoginPage(page);
+
         await test.step('Open the TTACart login page', async () => {
             log.info('Opening the TTACart login page');
             await loginPage.open();
         });
     });
 
-    test('logs in with valid credentials @p0', async ({ page }) => {
+    test('logs in with valid credentials @p0', async () => {
 
         await test.step('Login as standard_user', async () => {
             log.info('Logging in as standard_user');

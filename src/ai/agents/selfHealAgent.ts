@@ -39,7 +39,7 @@ const SYSTEM =
 export const selfHealAgent = createAgent<HealInput, HealCandidates>({
     name: 'self-heal',
     system: SYSTEM,
-    schema: schema as object,
+    schema,
     temperature: 0,
     maxTokens: 900,
     buildPrompt: ({ failedSelector, intent, domDigest }) => `
