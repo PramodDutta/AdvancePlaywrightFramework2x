@@ -603,7 +603,7 @@ Two Ajv details worth knowing. The schema is **draft-07**: Ajv 8's default expor
 
 ### Booking test data (`@testdata/booking.data`)
 
-**Concept:** Two builders return the same `Booking` shape with every field overridable. Both go through [`DataGenerator`](#datagenerator), so random data has a single source; `buildBooking()` additionally pins check-in to `PINNED_CHECKIN` for specs that assert on a known date.
+**Concept:** Two builders return the same `Booking` shape with every field overridable. Both go through [`DataGenerator`](src/utils/DataGenerator.ts), so random data has a single source; `buildBooking()` additionally pins check-in to `PINNED_CHECKIN` for specs that assert on a known date.
 
 **Why:** Hard-coded payloads make two tests collide on the same data, and a payload written inline cannot be partially pinned without retyping every field.
 
