@@ -60,3 +60,21 @@ TTA_ENV=api npx playwright test             # restful-booker base URL
 npx tsc --noEmit -p tsconfig.json           # type check
 open tta-report/index.html                  # newest custom report
 ```
+
+## Quality gates (run before raising a PR)
+
+Four questions, every diff. Full text in [`docs/quality-gates.md`](../docs/quality-gates.md), one
+skill each in `.claude/skills/gate-*/SKILL.md`.
+
+| Gate | The question |
+|:-----|:-------------|
+| **ai-slop** | Was this generated, skimmed, and shipped? |
+| **ponytail** | Does anything else in the run already record this? |
+| **over-engineering** | How many callers does this abstraction have? |
+| **framework-patterns** | Is this still part of this framework? |
+
+**A gate that cannot cite a command it ran has not run.** Report PASS or FAIL per gate with the
+grep, the counts or the line numbers behind it. Evidence is `npm run verify`, plus
+`npx playwright test --project=<p> --list` for any new spec file.
+
+Never weaken a gate to make a diff pass. Fix the gate in its own commit and say so.

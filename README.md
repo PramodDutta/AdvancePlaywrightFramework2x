@@ -871,8 +871,10 @@ Two guarantees callers lean on: `data` is schema-valid or `available` is false, 
 │   ├── copilot-instructions.md  # Repo-wide rules for GitHub Copilot
 │   └── workflows/         # CI pipeline (GitHub Actions)
 ├── .env.example           # Committed template; CI copies it to .env
+├── AGENTS.md              # Entry point for Devin, OpenCode and other agents
 ├── docs/
 │   ├── assets/                  # Diagrams and report screenshots used by this README
+│   ├── quality-gates.md         # Canonical text of the four PR gates
 │   ├── Playwright-Worker.md     # Parallel workers: measured timings, RAM per worker
 │   ├── ai-factory.prompt.md     # Brief for adding the LLM agent layer
 │   └── postman_api_collection/  # Restful Booker collection, incl. PATCH/DELETE
@@ -1154,6 +1156,87 @@ A plain `npx playwright test` now runs both projects, so CI reaches two live thi
 (`restful-booker.herokuapp.com` and `gorest.in`). Neither is under this project's control, so an
 outage on either turns the build red without a code change. Split the job with `--project=` if UI
 and API results need to fail independently.
+
+## Quality Gates
+
+**Concept:** Four questions asked of every diff before it becomes a pull request, published in the
+format each AI coding agent reads, so the same standard applies whether the change came from
+Claude Code, Copilot, Cursor, Windsurf, Kiro, Devin or OpenCode.
+
+**Why:** AI-assisted changes fail in four recognisable ways, and a reviewer who has to remember all
+four catches none of them at 5pm on a Friday.
+
+**Q&A - why use this?**
+
+- **Q: When do I reach for it?** A: Before opening a PR. The template in `.github/` will ask for each gate's evidence anyway.
+- **Q: What does it replace?** A: A reviewer noticing, or not noticing, on the day.
+- **Q: What's the gotcha?** A: **A gate that cannot cite a command it ran has not run.** "Looks fine" is not a verdict, and a gate report without a grep, a count or a line number is the same slop the first gate exists to catch.
+
+| Gate | The question |
+|:-----|:-------------|
+| **ai-slop** | Was this generated, skimmed, and shipped? |
+| **ponytail** | Does anything else in the run already record this? |
+| **over-engineering** | How many callers does this abstraction have? |
+| **framework-patterns** | Is this still part of *this* framework? |
+
+```mermaid
+flowchart LR
+    D["diff"] --> G1["ai-slop<br/>is it real?"]
+    G1 --> G2["ponytail<br/>is it duplicated?"]
+    G2 --> G3["over-engineering<br/>how many callers?"]
+    G3 --> G4["framework-patterns<br/>does it belong here?"]
+    G4 --> V{"every gate cites<br/>a command it ran?"}
+    V -->|yes| PR["raise the PR"]
+    V -->|no| B["not reviewed,<br/>just skimmed"]
+```
+
+The order is deliberate. Slop asks whether the change is real, ponytail and over-engineering ask
+whether it is bigger than it needs to be, and framework-patterns asks whether it belongs in this
+repo at all. A change that fails the first gate makes the other three moot.
+
+### Where each agent reads them
+
+One source, `docs/quality-gates.md`, mirrored into the location each tool looks in. Edit the
+source and regenerate; do not edit a copy.
+
+| Agent | Reads |
+|:------|:------|
+| Claude Code | `.claude/skills/quality-gate/` plus `.claude/skills/gate-*/SKILL.md` |
+| GitHub Copilot | `.github/copilot-instructions.md` |
+| Cursor | `.cursor/rules/quality-gates.mdc` |
+| Windsurf | `.windsurf/rules/quality-gates.md` |
+| Kiro | `.kiro/steering/quality-gates.md` |
+| Cline | `.clinerules/quality-gates.md` |
+| OpenCode | `.opencode/command/quality-gate.md` |
+| Devin and others | `AGENTS.md`, `.agents/rules/quality-gates.md` |
+
+### Enforcement
+
+Prose gates get skipped, so the machine-checkable half runs in CI
+(`.github/workflows/quality-gate.yml`) on every PR to `main`:
+
+| Step | Blocks on |
+|:-----|:----------|
+| typecheck | any `tsc` error |
+| lint | any ESLint error (skips itself until the linter lands) |
+| spec filenames | any `*_spec.ts`, which Playwright silently never collects |
+| committed secrets | a tracked `.env`, or key-shaped strings in tracked files |
+| new exports with no caller | warns only, for the reviewer to judge |
+| suite with `DEEPSEEK_API_KEY=''` | a suite that needs a key to pass |
+
+Judgement stays with the reviewer. CI only enforces what a machine can check without an opinion.
+
+### Running them by hand
+
+```bash
+git diff main...HEAD                        # the change under review
+npx tsc --noEmit -p tsconfig.json           # (or `npm run verify` once the eslint PR lands)
+npx playwright test
+npx playwright test --project=<p> --list    # proves a new spec is actually collected
+```
+
+Never weaken a gate to make a diff pass. If a gate is wrong about this repo, fix the gate in its
+own commit and say so.
 
 ## Agent Skills
 
