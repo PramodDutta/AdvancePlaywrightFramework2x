@@ -13,6 +13,7 @@ A TypeScript test automation framework built on [Playwright](https://playwright.
 - **Winston** - logging
 - **Allure Playwright** - test reporting
 - **dotenv** - environment configuration
+- **ESLint 9 + typescript-eslint + eslint-plugin-playwright** - type-aware linting
 
 ---
 
@@ -951,9 +952,10 @@ Two guarantees callers lean on: `data` is schema-valid or `available` is false, 
 │       ├── UtilElementLocator.ts # Logged locator wrapper (Flex type)
 │       ├── visualStep.ts        # Optional per-step screenshot attachments
 │       └── logger.ts            # Winston scoped logger
+├── eslint.config.mjs      # ESLint flat config, type-aware
 ├── playwright.config.ts   # Playwright configuration
 ├── tsconfig.json          # TypeScript configuration and path aliases
-└── package.json
+└── package.json           # npm scripts: lint, typecheck, verify, test
 ```
 
 ## Prerequisites
@@ -1122,6 +1124,100 @@ Defined in `playwright.config.ts`:
 - Video: always recorded
 - Trace: always captured
 - Browser: Chromium (Desktop Chrome) for the `chromium` project only; the `api` project defines no `devices[...]` and starts no browser
+
+## Linting (ESLint)
+
+**Concept:** ESLint 9 flat config (`eslint.config.mjs`) with **type-aware** rules, plus
+`eslint-plugin-playwright` on spec files.
+
+**Why:** The most expensive bug in a Playwright suite is a missing `await`. The assertion resolves
+after the test has already ended, so the test passes while checking nothing. Only a type-aware rule
+can see that, which is the whole reason this config reads `tsconfig.json` rather than parsing files
+in isolation.
+
+**Q&A - why use this?**
+
+- **Q: When do I reach for it?** A: `npm run verify` before a push. It chains typecheck, lint and the suite.
+- **Q: What does it replace?** A: Nothing that existed. The repo had no linter and, until now, no npm scripts at all.
+- **Q: What's the gotcha?** A: **Review `--fix` output, never trust it.** On this repo `no-unnecessary-type-assertion` stripped `as number[]` from a `JSONPath()` call. The cast looked redundant to the rule because the source is `any`, but it was the only thing giving the callbacks a type, and removing it broke the build.
+
+### Install
+
+Already in `devDependencies`. On a fresh clone:
+
+```bash
+npm install
+```
+
+To add it to another project from scratch:
+
+```bash
+npm install --save-dev eslint typescript-eslint eslint-plugin-playwright @eslint/js
+npm install --save-dev typescript          # declare it explicitly, see the note below
+```
+
+### Commands
+
+| Command | Does |
+|:--------|:-----|
+| `npm run lint` | Report problems. Exits non-zero on errors, zero on warnings |
+| `npm run lint:fix` | Auto-fix, then **read the diff** |
+| `npm run typecheck` | `tsc --noEmit` |
+| `npm run verify` | typecheck, then lint, then the full suite |
+| `npm test` | The Playwright suite |
+| `npm run test:ui` / `test:api` / `test:ai` | One project |
+
+### Config shape
+
+```js
+// eslint.config.mjs
+export default tseslint.config(
+    { ignores: ['node_modules/**', 'tta-report/**', 'reports/**', '.claude/**', /* ... */] },
+    js.configs.recommended,
+    ...tseslint.configs.recommendedTypeChecked,
+    {
+        languageOptions: {
+            parserOptions: { projectService: true, tsconfigRootDir: import.meta.dirname },
+        },
+        rules: {
+            '@typescript-eslint/no-floating-promises': 'error',   // the missing-await rule
+            '@typescript-eslint/await-thenable': 'error',
+            '@typescript-eslint/no-unsafe-assignment': 'warn',    // JSON boundaries, see below
+            'eqeqeq': ['error', 'always'],
+            'prefer-const': 'error',
+        },
+    },
+    {
+        files: ['src/tests/**/*.spec.ts'],
+        ...playwright.configs['flat/recommended'],
+        rules: { 'playwright/no-focused-test': 'error' },         // a stray test.only skips the file
+    },
+);
+```
+
+### Why the `no-unsafe-*` rules are warnings
+
+`response.json()` and `JSONPath()` both return `any`, so those rules fire across every raw API
+spec: **32 of the original 72 findings** came from that one cause. They are worth seeing, not worth
+blocking a build over, because the real contract check is the Ajv schema at
+[Level 05](#05---json-schema-validation-ajv), which validates the whole response body at run time.
+They stay at `warn` so the count remains visible instead of quietly growing.
+
+Current state: **0 errors, 47 warnings.**
+
+### TypeScript is now a declared dependency
+
+Adding ESLint exposed a pre-existing hole: **`typescript` was never in `package.json`**. It arrived
+transitively, so `npm install` was free to resolve a different major version at any time. It duly
+did, pulling TypeScript 6 and breaking `tsc` on two now-deprecated options:
+
+```
+error TS5107: Option 'moduleResolution=node10' is deprecated ...
+error TS5101: Option 'baseUrl' is deprecated ...
+```
+
+It is now pinned at `~5.9` in `devDependencies`. Nothing about the linter caused this; it only
+made an existing fragility visible.
 
 ## Continuous Integration
 

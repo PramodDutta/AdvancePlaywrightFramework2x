@@ -35,7 +35,7 @@ const SYSTEM =
 const flakySummaryAgent = createAgent<FlakySummaryInput, { summary: string }>({
     name: 'flaky-summary',
     system: SYSTEM,
-    schema: schema as object,
+    schema,
     temperature: 0,
     maxTokens: 500,
     buildPrompt: ({ prevId, currId, flips, total }) => `

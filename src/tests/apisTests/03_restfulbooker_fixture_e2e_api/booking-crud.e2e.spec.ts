@@ -6,6 +6,7 @@ const log = createLogger('booking-crud');
 
 test.describe.serial('@e2e @P0 Level 3 - Booking lifecycle (token from fixture)', () => {
     let bookingId: number;
+
     test('create a booking', async ({ bookingApi }, testInfo) => {
         const payload = buildBooking({ firstname: 'E2E', lastname: 'Journey' });
 
@@ -24,6 +25,7 @@ test.describe.serial('@e2e @P0 Level 3 - Booking lifecycle (token from fixture)'
             });
         });
     });
+
     test('update the booking (token comes from the fixture)', async ({
         bookingApi,
         bookerToken,
@@ -53,6 +55,7 @@ test.describe.serial('@e2e @P0 Level 3 - Booking lifecycle (token from fixture)'
             log.info(`Step 2: booking ${bookingId} confirmed as "Updated"`);
         });
     });
+
     test('delete the booking and confirm it is gone', async ({ bookingApi, bookerToken }) => {
         await test.step('DELETE /booking/{id} with the fixture token', async () => {
             log.info(`Step 1: deleting booking ${bookingId}`);

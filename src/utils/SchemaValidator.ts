@@ -30,8 +30,8 @@ export class SchemaValidator {
     /** Validate and return every violation as readable text. Never throws on invalid data. */
     static validate(schema: object, data: unknown): ValidationResult {
         const validate = ajv.compile(schema);
-        const valid = validate(data) as boolean;
-        return { valid, errors: (validate.errors ?? []).map(SchemaValidator.describe) };
+        const valid = validate(data);
+        return { valid, errors: (validate.errors ?? []).map((e) => SchemaValidator.describe(e)) };
     }
 
     /** Validate, or throw listing every violation at once. */

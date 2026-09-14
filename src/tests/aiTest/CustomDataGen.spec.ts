@@ -1,5 +1,5 @@
 import { test, expect } from '@fixtures/booker.fixture';
-import { dataGenAgent, toApiPayload, type GeneratedBooking } from '../../ai/agents/dataGenAgent';
+import { dataGenAgent, toApiPayload } from '../../ai/agents/dataGenAgent';
 import { hasApiKey } from '../../ai/config/providers';
 import bookingSchema from '@testdata/schemas/ai-booking-payload.schema.json';
 import { SchemaValidator } from '@utils/SchemaValidator';
@@ -35,7 +35,7 @@ test.describe('@ai @P1 Level AI-01 - Custom data generator', () => {
         // The factory already validated, so this is a guard against the factory
         // itself regressing, not a repeat of its work.
         expect(SchemaValidator.validate(bookingSchema, result.data).valid).toBe(true);
-        expect(result.data.bookings.length).toBe(3);
+        expect(result.data.bookings).toHaveLength(3);
 
         await testInfo.attach('ai-data', {
             body: JSON.stringify(
@@ -48,7 +48,7 @@ test.describe('@ai @P1 Level AI-01 - Custom data generator', () => {
 
         const created: number[] = [];
         try {
-            for (const booking of result.data.bookings as GeneratedBooking[]) {
+            for (const booking of result.data.bookings) {
                 await test.step(`POST /booking - ${booking.scenario}`, async () => {
                     // Dates are the field a model most often gets wrong, and the
                     // API will not catch a reversed stay, so assert it here.

@@ -68,6 +68,7 @@ test.describe.serial('Restful Booker CRUD API', () => {
 
 
     });
+
     test('TC#2 @p0 - Create booking', async ({ request }) => {
         
         await test.step('Create booking', async () => {
@@ -87,6 +88,7 @@ test.describe.serial('Restful Booker CRUD API', () => {
         });
 
     });
+
     test('TC#3 @p0 - Update booking', async ({ request }) => {
 
 
