@@ -58,8 +58,6 @@ only in its own file should lose its `export`, not be deleted.
 
 ```bash
 npm run verify                              # typecheck, lint, full suite
-# `verify` arrives with the eslint PR. Until it lands, run the three directly:
-npx tsc --noEmit -p tsconfig.json && npx playwright test
 npx playwright test --project=<p> --list    # proves a new spec is actually collected
 git diff main...HEAD                        # the change under review
 ```

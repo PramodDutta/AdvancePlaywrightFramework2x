@@ -1315,7 +1315,7 @@ Prose gates get skipped, so the machine-checkable half runs in CI
 | Step | Blocks on |
 |:-----|:----------|
 | typecheck | any `tsc` error |
-| lint | any ESLint error (skips itself until the linter lands) |
+| lint | any ESLint error |
 | spec filenames | any `*_spec.ts`, which Playwright silently never collects |
 | committed secrets | a tracked `.env`, or key-shaped strings in tracked files |
 | new exports with no caller | warns only, for the reviewer to judge |
@@ -1327,8 +1327,7 @@ Judgement stays with the reviewer. CI only enforces what a machine can check wit
 
 ```bash
 git diff main...HEAD                        # the change under review
-npx tsc --noEmit -p tsconfig.json           # (or `npm run verify` once the eslint PR lands)
-npx playwright test
+npm run verify                              # typecheck, lint, then the full suite
 npx playwright test --project=<p> --list    # proves a new spec is actually collected
 ```
 
@@ -1420,9 +1419,7 @@ to matter, and those silences are the interesting part.
 
 **Became:** [`eslint.config.mjs`](eslint.config.mjs) (ESLint 9 flat config, type-aware), plus
 `typescript-eslint` and `eslint-plugin-playwright`, plus the npm scripts the repo had never had.
-
-> Both links in this subsection, the config file and the [Linting](#linting-eslint) section, land
-> on `main` with the `eslint-add` branch. They resolve once that PR merges.
+See [Linting](#linting-eslint).
 
 **What the prompt did not say, and had to be decided:**
 

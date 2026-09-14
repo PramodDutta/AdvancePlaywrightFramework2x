@@ -83,6 +83,17 @@ one easier to write the wrong way. These rules are specific to
 20. **Update all four sync points** when adding a module: the section, the level table, the
     project tree, and the env-keys table. Partial updates rot.
 
+## CI and tooling
+
+21. **In CI, call the local binary, never `npx`.** On a checkout where a tool is not a declared
+    dependency, `npx <tool>` silently downloads an unrelated package of the same name from the
+    registry and runs it. This gate's own first CI run did exactly that: `npx tsc` fetched
+    `tsc@2.0.4` and failed with *"This is not the tsc command you are looking for"*. Use
+    `./node_modules/.bin/tsc` or an npm script.
+22. **Every tool the build needs is a declared dependency.** `typescript` was absent from
+    `package.json` for most of this repo's life, arriving transitively, which is what made the
+    above possible.
+
 ## Evidence required
 
 ```bash

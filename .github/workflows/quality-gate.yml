@@ -26,21 +26,15 @@ jobs:
       - name: Seed .env
         run: cp .env.example .env
 
-      # Called directly, not through an npm script, so this workflow works on a
-      # branch that does not have the scripts yet. Once the eslint branch lands,
-      # `npm run verify` chains all three locally.
+      # The local binary, never `npx tsc`. On a checkout where typescript is not
+      # installed, npx silently downloads an unrelated package also called `tsc`
+      # and fails with "This is not the tsc command you are looking for". This
+      # gate hit that on its own first run.
       - name: framework-patterns - typecheck
-        run: npx tsc --noEmit -p tsconfig.json
+        run: ./node_modules/.bin/tsc --noEmit -p tsconfig.json
 
-      # Conditional on purpose: the linter arrives in its own PR. Once
-      # eslint.config.mjs is on main this step starts enforcing, with no edit here.
       - name: ai-slop - lint
-        run: |
-          if [ -f eslint.config.mjs ] || [ -f .eslintrc.json ] || [ -f .eslintrc.js ]; then
-            npx eslint .
-          else
-            echo "::notice::No ESLint config on this branch yet, skipping. See the eslint-add PR."
-          fi
+        run: ./node_modules/.bin/eslint .
 
       - name: framework-patterns - spec filenames need a dot before "spec"
         run: |
@@ -77,9 +71,9 @@ jobs:
           echo "Caller audit complete. Warnings above are for the reviewer, not a block."
 
       - name: Playwright browsers
-        run: npx playwright install --with-deps chromium
+        run: ./node_modules/.bin/playwright install --with-deps chromium
 
       - name: framework-patterns - suite must pass with no AI key
-        run: xvfb-run npx playwright test
+        run: xvfb-run ./node_modules/.bin/playwright test
         env:
           DEEPSEEK_API_KEY: ''    # CI has no key. This is the normal path, not an edge case.
