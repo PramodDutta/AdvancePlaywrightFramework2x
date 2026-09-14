@@ -1,0 +1,79 @@
+name: Quality Gate
+
+# The mechanical half of docs/quality-gates.md. Judgement still belongs to the
+# reviewer; this only enforces what a machine can check without an opinion.
+on:
+  pull_request:
+    branches: [main, master]
+
+jobs:
+  gate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0          # the gates diff against the base branch
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: lts/*
+          cache: npm
+
+      - run: npm ci
+
+      # `.env` is gitignored, so the runner has none. The env util throws at
+      # collection without it and the whole suite fails before a test runs.
+      - name: Seed .env
+        run: cp .env.example .env
+
+      # The local binary, never `npx tsc`. On a checkout where typescript is not
+      # installed, npx silently downloads an unrelated package also called `tsc`
+      # and fails with "This is not the tsc command you are looking for". This
+      # gate hit that on its own first run.
+      - name: framework-patterns - typecheck
+        run: ./node_modules/.bin/tsc --noEmit -p tsconfig.json
+
+      - name: ai-slop - lint
+        run: ./node_modules/.bin/eslint .
+
+      - name: framework-patterns - spec filenames need a dot before "spec"
+        run: |
+          bad=$(git ls-files 'src/tests/**' | grep -E '_spec\.ts$' || true)
+          if [ -n "$bad" ]; then
+            echo "::error::These files are silently never collected by Playwright:"
+            echo "$bad"
+            echo "Rename to *.spec.ts (a dot, not an underscore)."
+            exit 1
+          fi
+          echo "All spec filenames are collectable."
+
+      - name: ai-slop - no committed secrets
+        run: |
+          if git ls-files | grep -qx '.env'; then
+            echo "::error::.env is tracked. It must stay gitignored."; exit 1
+          fi
+          hits=$(git grep -nIE '(sk-[A-Za-z0-9_-]{16,}|ghp_[A-Za-z0-9]{20,}|AKIA[0-9A-Z]{16})' -- . ':!*.lock' ':!package-lock.json' || true)
+          if [ -n "$hits" ]; then
+            echo "::error::Possible committed credential:"; echo "$hits"; exit 1
+          fi
+          echo "No key material in tracked files."
+
+      - name: over-engineering - report new exports with no external caller
+        run: |
+          git diff --name-only origin/${{ github.base_ref }}...HEAD -- 'src/**/*.ts' | while read -r f; do
+            [ -f "$f" ] || continue
+            grep -oE '^export (async )?(function|const|class|interface|type) [A-Za-z_]+' "$f" 2>/dev/null \
+              | awk '{print $NF}' | while read -r s; do
+                  n=$(grep -rl "\b$s\b" src --include='*.ts' 2>/dev/null | grep -v "^$f$" | wc -l | tr -d ' ')
+                  [ "$n" -eq 0 ] && echo "::warning file=$f::export '$s' has no caller outside its own file. Drop the export, or delete it."
+                done
+          done
+          echo "Caller audit complete. Warnings above are for the reviewer, not a block."
+
+      - name: Playwright browsers
+        run: ./node_modules/.bin/playwright install --with-deps chromium
+
+      - name: framework-patterns - suite must pass with no AI key
+        run: xvfb-run ./node_modules/.bin/playwright test
+        env:
+          DEEPSEEK_API_KEY: ''    # CI has no key. This is the normal path, not an edge case.

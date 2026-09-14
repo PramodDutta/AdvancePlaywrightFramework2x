@@ -870,10 +870,13 @@ Two guarantees callers lean on: `data` is schema-valid or `available` is false, 
 │   └── skills/            # 12 agent skills, read by Claude Code AND Copilot
 ├── .github/
 │   ├── copilot-instructions.md  # Repo-wide rules for GitHub Copilot
-│   └── workflows/         # CI pipeline (GitHub Actions)
+│   ├── pull_request_template.md # Asks each quality gate for its evidence
+│   └── workflows/         # CI pipeline, plus quality-gate.yml
 ├── .env.example           # Committed template; CI copies it to .env
+├── AGENTS.md              # Entry point for Devin, OpenCode and other agents
 ├── docs/
 │   ├── assets/                  # Diagrams and report screenshots used by this README
+│   ├── quality-gates.md         # Canonical text of the four PR gates
 │   ├── Playwright-Worker.md     # Parallel workers: measured timings, RAM per worker
 │   ├── ai-factory.prompt.md     # Brief for adding the LLM agent layer
 │   └── postman_api_collection/  # Restful Booker collection, incl. PATCH/DELETE
@@ -1251,11 +1254,91 @@ A plain `npx playwright test` now runs both projects, so CI reaches two live thi
 outage on either turns the build red without a code change. Split the job with `--project=` if UI
 and API results need to fail independently.
 
+## Quality Gates
+
+**Concept:** Four questions asked of every diff before it becomes a pull request, published in the
+format each AI coding agent reads, so the same standard applies whether the change came from
+Claude Code, Copilot, Cursor, Windsurf, Kiro, Devin or OpenCode.
+
+**Why:** AI-assisted changes fail in four recognisable ways, and a reviewer who has to remember all
+four catches none of them at 5pm on a Friday.
+
+**Q&A - why use this?**
+
+- **Q: When do I reach for it?** A: Before opening a PR. The template in `.github/` will ask for each gate's evidence anyway.
+- **Q: What does it replace?** A: A reviewer noticing, or not noticing, on the day.
+- **Q: What's the gotcha?** A: **A gate that cannot cite a command it ran has not run.** "Looks fine" is not a verdict, and a gate report without a grep, a count or a line number is the same slop the first gate exists to catch.
+
+| Gate | The question |
+|:-----|:-------------|
+| **ai-slop** | Was this generated, skimmed, and shipped? |
+| **ponytail** | Does anything else in the run already record this? |
+| **over-engineering** | How many callers does this abstraction have? |
+| **framework-patterns** | Is this still part of *this* framework? |
+
+```mermaid
+flowchart LR
+    D["diff"] --> G1["ai-slop<br/>is it real?"]
+    G1 --> G2["ponytail<br/>is it duplicated?"]
+    G2 --> G3["over-engineering<br/>how many callers?"]
+    G3 --> G4["framework-patterns<br/>does it belong here?"]
+    G4 --> V{"every gate cites<br/>a command it ran?"}
+    V -->|yes| PR["raise the PR"]
+    V -->|no| B["not reviewed,<br/>just skimmed"]
+```
+
+The order is deliberate. Slop asks whether the change is real, ponytail and over-engineering ask
+whether it is bigger than it needs to be, and framework-patterns asks whether it belongs in this
+repo at all. A change that fails the first gate makes the other three moot.
+
+### Where each agent reads them
+
+One source, `docs/quality-gates.md`, mirrored into the location each tool looks in. Edit the
+source and regenerate; do not edit a copy.
+
+| Agent | Reads |
+|:------|:------|
+| Claude Code | `.claude/skills/quality-gate/` plus `.claude/skills/gate-*/SKILL.md` |
+| GitHub Copilot | `.github/copilot-instructions.md` |
+| Cursor | `.cursor/rules/quality-gates.mdc` |
+| Windsurf | `.windsurf/rules/quality-gates.md` |
+| Kiro | `.kiro/steering/quality-gates.md` |
+| Cline | `.clinerules/quality-gates.md` |
+| OpenCode | `.opencode/command/quality-gate.md` |
+| Devin and others | `AGENTS.md`, `.agents/rules/quality-gates.md` |
+
+### Enforcement
+
+Prose gates get skipped, so the machine-checkable half runs in CI
+(`.github/workflows/quality-gate.yml`) on every PR to `main`:
+
+| Step | Blocks on |
+|:-----|:----------|
+| typecheck | any `tsc` error |
+| lint | any ESLint error |
+| spec filenames | any `*_spec.ts`, which Playwright silently never collects |
+| committed secrets | a tracked `.env`, or key-shaped strings in tracked files |
+| new exports with no caller | warns only, for the reviewer to judge |
+| suite with `DEEPSEEK_API_KEY=''` | a suite that needs a key to pass |
+
+Judgement stays with the reviewer. CI only enforces what a machine can check without an opinion.
+
+### Running them by hand
+
+```bash
+git diff main...HEAD                        # the change under review
+npm run verify                              # typecheck, lint, then the full suite
+npx playwright test --project=<p> --list    # proves a new spec is actually collected
+```
+
+Never weaken a gate to make a diff pass. If a gate is wrong about this repo, fix the gate in its
+own commit and say so.
+
 ## Agent Skills
 
-**Concept:** `.claude/skills/` holds 12 agent skills: 11 adapted from the
+**Concept:** `.claude/skills/` holds 17 agent skills: 11 adapted from the
 [TheTestingAcademy Playwright pack](https://github.com/PramodDutta/skillmasterclass/tree/main/skillmasterclass/skills/framework-packs/playwright-pack),
-plus one written for this repo. Each is a `SKILL.md` with YAML frontmatter that an agent loads only
+one written for this repo, and five that make up the [quality gates](#quality-gates). Each is a `SKILL.md` with YAML frontmatter that an agent loads only
 when the task matches its description.
 
 **Why:** The upstream pack is written for generic Playwright. These copies are rewritten against
@@ -1283,6 +1366,17 @@ suggestions and chat, which do not load skills the same way.
 | `pw-ci-configurator` | Editing `.github/workflows/playwright.yml` |
 | `feature-explainer` | An ELI5 page plus hand-drawn whiteboard for a shipped change |
 
+The five gate skills are loaded before raising a PR rather than while writing code. See
+[Quality Gates](#quality-gates) for how they are enforced and where each agent reads them.
+
+| Gate skill | The question it asks |
+|:-----------|:---------------------|
+| `quality-gate` | Orchestrator. Runs the four below, in order, and reports a verdict per gate |
+| `gate-ai-slop` | Was this generated, skimmed, and shipped? |
+| `gate-ponytail` | Does anything else in the run already record this? |
+| `gate-over-engineering` | How many callers does this abstraction have? |
+| `gate-framework-patterns` | Is this still part of *this* framework? |
+
 **Q&A - why use these?**
 
 - **Q: How do I trigger one?** A: Describe the task in the words the skill's description lists, for example "make a page object for the cart" or "this test is flaky". The agent loads the matching skill itself. In Claude Code you can also invoke one by name.
@@ -1308,6 +1402,79 @@ commit, and push to `main`. Run it after a feature lands so the docs never drift
 /gogo                 # README + commit + push
 /gogo skip readme     # commit and push only
 ```
+
+## Appendix: the prompts behind these features
+
+This repo keeps the prompt that produced a feature alongside the feature, the same way
+[`docs/ai-factory.prompt.md`](docs/ai-factory.prompt.md) does for the AI layer. Two are recorded
+here, verbatim as typed, with what each became and, more usefully, **what each left out**.
+
+A prompt is rarely wrong. It is usually just silent on the three or four decisions that turn out
+to matter, and those silences are the interesting part.
+
+### ESLint
+
+> create another branch with the 'eslint add' and add the eslint and update the readme file with
+> installation command and config
+
+**Became:** [`eslint.config.mjs`](eslint.config.mjs) (ESLint 9 flat config, type-aware), plus
+`typescript-eslint` and `eslint-plugin-playwright`, plus the npm scripts the repo had never had.
+See [Linting](#linting-eslint).
+
+**What the prompt did not say, and had to be decided:**
+
+| Silence | Decision, and why |
+|:--------|:------------------|
+| Type-aware, or fast? | **Type-aware.** The expensive bug in a Playwright suite is a missing `await`, where the assertion resolves after the test has ended so it passes while checking nothing. Only a type-aware rule sees it. It found none, which is a clean result worth recording. |
+| What to do with 72 findings | 32 of them had **one cause**: `response.json()` and `JSONPath()` return `any`. Those became warnings, because the real contract check is the Ajv schema at Level 05. The other 7 genuine findings were fixed. |
+| Whether to trust `--fix` | **No.** It stripped `as number[]` from a `JSONPath()` call. The cast looked redundant because the source is `any`, but it was the only thing typing the callbacks, and removing it broke `tsc`. |
+
+**What it exposed that nobody asked about:** `typescript` was never a declared dependency. It
+arrived transitively, so any install could move its major version, and installing ESLint duly
+pulled TypeScript 6 and broke `tsc` on deprecated `baseUrl` and `node10` options. Now pinned.
+
+### Quality gates
+
+> create new branch with the name 'quality-gate', where we need to add the 4 gates of quality,
+>
+> | | |
+> |---|---|
+> | ai-slop | Was this generated, skimmed, and shipped? |
+> | ponytail | Does anything else in the run already record this? |
+> | over-engineering | How many callers does this abstraction have? |
+> | framework-patterns | Is this still part of this framework? |
+>
+> we want that whenever some is using the githubcopilot, claude code, cursor, windsurf, kiro,
+> devin commandcode, opencode they have to use those skills as gates when then raise the PR,
+> these should run and make sure that quality is maintained.
+>
+> please create them as a skill files. and add the rules according to existing base framework.
+
+**Became:** five skills under `.claude/skills/`, one canonical
+[`docs/quality-gates.md`](docs/quality-gates.md) mirrored to eight agents, a PR template, and
+`.github/workflows/quality-gate.yml`. See [Quality Gates](#quality-gates).
+
+**What the prompt did not say, and had to be decided:**
+
+| Silence | Decision, and why |
+|:--------|:------------------|
+| What order the gates run in | Slop, then ponytail and over-engineering, then framework-patterns. The order is the argument: is the change real, is it bigger than it needs to be, does it belong here. Failing the first makes the rest moot. |
+| What a gate must **not** flag | Added to every gate. A gate that overreaches gets disabled, so `ponytail` may not touch assertions, knowledge that cannot be re-derived from the code, or test granularity. |
+| How "these should run" is enforced | Prose gates get skipped, so the machine-checkable half runs in CI: typecheck, lint, spec filenames, committed secrets, a caller audit, and the suite with the API key emptied. |
+| How eight copies stay in sync | One source, generated into each agent's location. Edit the source, regenerate; never edit a copy. |
+| What evidence counts | **A gate that cannot cite a command it ran has not run.** A gate report without a grep, a count or line numbers is the same slop the first gate exists to catch. |
+
+**The instruction that did most of the work** was the last line: *"add the rules according to
+existing base framework."* Without it the gates would have been generic lint advice. With it,
+`gate-framework-patterns` carries the traps that have actually cost time in this repo: a spec
+named `*_spec.ts` is silently never collected, and a new test directory that skips its project
+decision either runs twice, runs against the wrong host, or is invisible.
+
+### Why keep prompts at all
+
+A commit message says what changed. A prompt says what was **asked for**, which is what lets the
+next person tell a deliberate decision from an accident. The gap between the two, the table of
+silences above, is where most of the engineering actually happened.
 
 ## License
 
