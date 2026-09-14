@@ -869,7 +869,8 @@ Two guarantees callers lean on: `data` is schema-valid or `available` is false, 
 │   └── skills/            # 12 agent skills, read by Claude Code AND Copilot
 ├── .github/
 │   ├── copilot-instructions.md  # Repo-wide rules for GitHub Copilot
-│   └── workflows/         # CI pipeline (GitHub Actions)
+│   ├── pull_request_template.md # Asks each quality gate for its evidence
+│   └── workflows/         # CI pipeline, plus quality-gate.yml
 ├── .env.example           # Committed template; CI copies it to .env
 ├── AGENTS.md              # Entry point for Devin, OpenCode and other agents
 ├── docs/
@@ -1240,9 +1241,9 @@ own commit and say so.
 
 ## Agent Skills
 
-**Concept:** `.claude/skills/` holds 12 agent skills: 11 adapted from the
+**Concept:** `.claude/skills/` holds 17 agent skills: 11 adapted from the
 [TheTestingAcademy Playwright pack](https://github.com/PramodDutta/skillmasterclass/tree/main/skillmasterclass/skills/framework-packs/playwright-pack),
-plus one written for this repo. Each is a `SKILL.md` with YAML frontmatter that an agent loads only
+one written for this repo, and five that make up the [quality gates](#quality-gates). Each is a `SKILL.md` with YAML frontmatter that an agent loads only
 when the task matches its description.
 
 **Why:** The upstream pack is written for generic Playwright. These copies are rewritten against
@@ -1269,6 +1270,17 @@ suggestions and chat, which do not load skills the same way.
 | `pw-accessibility-auditor` | axe checks (`@axe-core/playwright` not installed yet) |
 | `pw-ci-configurator` | Editing `.github/workflows/playwright.yml` |
 | `feature-explainer` | An ELI5 page plus hand-drawn whiteboard for a shipped change |
+
+The five gate skills are loaded before raising a PR rather than while writing code. See
+[Quality Gates](#quality-gates) for how they are enforced and where each agent reads them.
+
+| Gate skill | The question it asks |
+|:-----------|:---------------------|
+| `quality-gate` | Orchestrator. Runs the four below, in order, and reports a verdict per gate |
+| `gate-ai-slop` | Was this generated, skimmed, and shipped? |
+| `gate-ponytail` | Does anything else in the run already record this? |
+| `gate-over-engineering` | How many callers does this abstraction have? |
+| `gate-framework-patterns` | Is this still part of *this* framework? |
 
 **Q&A - why use these?**
 
