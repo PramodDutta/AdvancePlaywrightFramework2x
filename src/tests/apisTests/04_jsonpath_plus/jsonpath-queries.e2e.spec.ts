@@ -1,7 +1,6 @@
 import { JSONPath } from 'jsonpath-plus';
 import { test, expect } from '@fixtures/booker.fixture';
 import { buildBooking } from '@testdata/booking.data';
-import { createLogger } from '@utils/logger';
 
 test.describe.serial('@e2e @P0 Level 3 - JSONPath queries on booking responses', () => {
     let bookingId: number;
@@ -68,16 +67,14 @@ test.describe.serial('@e2e @P0 Level 3 - JSONPath queries on booking responses',
         expect(typeof lastId).toBe('number');
 
         // 9) Wildcard across the array -> EVERY bookingid in one shot.
-        const allIds = JSONPath({ path: '$[*].bookingid', json: list }) as number[];
-        expect(allIds.length).toBe(list.length);
+        const allIds: number[] = JSONPath({ path: '$[*].bookingid', json: list });
+        expect(allIds).toHaveLength(list.length);
         expect(allIds.every((n) => Number.isInteger(n))).toBe(true);
 
         // 10) Filter -> only objects whose bookingid is > 0  ([?(@.bookingid > 0)]).
         //     `@` is the current item being tested by the filter.
-        const positives = JSONPath({ path: '$[?(@.bookingid > 0)]', json: list }) as Array<{
-            bookingid: number;
-        }>;
-        expect(positives.length).toBe(list.length);
+        const positives: { bookingid: number }[] = JSONPath({ path: '$[?(@.bookingid > 0)]', json: list });
+        expect(positives).toHaveLength(list.length);
         expect(positives.every((o) => o.bookingid > 0)).toBe(true);
     });
 

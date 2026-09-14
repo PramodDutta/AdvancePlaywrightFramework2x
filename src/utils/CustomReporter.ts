@@ -216,8 +216,8 @@ class CustomTTAReporter implements Reporter {
     onTestEnd(test: TestCase, result: TestResult): void {
         this.suiteStats.total++;
 
-        let status: 'passed' | 'failed' | 'skipped' | 'timedOut' = 'passed';
-        let statusIcon = '✅';
+        let status: 'passed' | 'failed' | 'skipped' | 'timedOut';
+        let statusIcon: string;
         if (result.status === 'passed') {
             this.suiteStats.passed++;
             status = 'passed';

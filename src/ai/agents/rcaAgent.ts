@@ -36,7 +36,7 @@ const SYSTEM =
 const rcaAgent = createAgent<FailureInput, RcaVerdict>({
     name: 'rca',
     system: SYSTEM,
-    schema: schema as object,
+    schema,
     temperature: 0,
     maxTokens: 700,
     buildPrompt: ({ title, file, error, stack }) => `
