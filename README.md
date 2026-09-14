@@ -1296,6 +1296,81 @@ commit, and push to `main`. Run it after a feature lands so the docs never drift
 /gogo skip readme     # commit and push only
 ```
 
+## Appendix: the prompts behind these features
+
+This repo keeps the prompt that produced a feature alongside the feature, the same way
+[`docs/ai-factory.prompt.md`](docs/ai-factory.prompt.md) does for the AI layer. Two are recorded
+here, verbatim as typed, with what each became and, more usefully, **what each left out**.
+
+A prompt is rarely wrong. It is usually just silent on the three or four decisions that turn out
+to matter, and those silences are the interesting part.
+
+### ESLint
+
+> create another branch with the 'eslint add' and add the eslint and update the readme file with
+> installation command and config
+
+**Became:** [`eslint.config.mjs`](eslint.config.mjs) (ESLint 9 flat config, type-aware), plus
+`typescript-eslint` and `eslint-plugin-playwright`, plus the npm scripts the repo had never had.
+
+> Both links in this subsection, the config file and the [Linting](#linting-eslint) section, land
+> on `main` with the `eslint-add` branch. They resolve once that PR merges.
+
+**What the prompt did not say, and had to be decided:**
+
+| Silence | Decision, and why |
+|:--------|:------------------|
+| Type-aware, or fast? | **Type-aware.** The expensive bug in a Playwright suite is a missing `await`, where the assertion resolves after the test has ended so it passes while checking nothing. Only a type-aware rule sees it. It found none, which is a clean result worth recording. |
+| What to do with 72 findings | 32 of them had **one cause**: `response.json()` and `JSONPath()` return `any`. Those became warnings, because the real contract check is the Ajv schema at Level 05. The other 7 genuine findings were fixed. |
+| Whether to trust `--fix` | **No.** It stripped `as number[]` from a `JSONPath()` call. The cast looked redundant because the source is `any`, but it was the only thing typing the callbacks, and removing it broke `tsc`. |
+
+**What it exposed that nobody asked about:** `typescript` was never a declared dependency. It
+arrived transitively, so any install could move its major version, and installing ESLint duly
+pulled TypeScript 6 and broke `tsc` on deprecated `baseUrl` and `node10` options. Now pinned.
+
+### Quality gates
+
+> create new branch with the name 'quality-gate', where we need to add the 4 gates of quality,
+>
+> | | |
+> |---|---|
+> | ai-slop | Was this generated, skimmed, and shipped? |
+> | ponytail | Does anything else in the run already record this? |
+> | over-engineering | How many callers does this abstraction have? |
+> | framework-patterns | Is this still part of this framework? |
+>
+> we want that whenever some is using the githubcopilot, claude code, cursor, windsurf, kiro,
+> devin commandcode, opencode they have to use those skills as gates when then raise the PR,
+> these should run and make sure that quality is maintained.
+>
+> please create them as a skill files. and add the rules according to existing base framework.
+
+**Became:** five skills under `.claude/skills/`, one canonical
+[`docs/quality-gates.md`](docs/quality-gates.md) mirrored to eight agents, a PR template, and
+`.github/workflows/quality-gate.yml`. See [Quality Gates](#quality-gates).
+
+**What the prompt did not say, and had to be decided:**
+
+| Silence | Decision, and why |
+|:--------|:------------------|
+| What order the gates run in | Slop, then ponytail and over-engineering, then framework-patterns. The order is the argument: is the change real, is it bigger than it needs to be, does it belong here. Failing the first makes the rest moot. |
+| What a gate must **not** flag | Added to every gate. A gate that overreaches gets disabled, so `ponytail` may not touch assertions, knowledge that cannot be re-derived from the code, or test granularity. |
+| How "these should run" is enforced | Prose gates get skipped, so the machine-checkable half runs in CI: typecheck, lint, spec filenames, committed secrets, a caller audit, and the suite with the API key emptied. |
+| How eight copies stay in sync | One source, generated into each agent's location. Edit the source, regenerate; never edit a copy. |
+| What evidence counts | **A gate that cannot cite a command it ran has not run.** A gate report without a grep, a count or line numbers is the same slop the first gate exists to catch. |
+
+**The instruction that did most of the work** was the last line: *"add the rules according to
+existing base framework."* Without it the gates would have been generic lint advice. With it,
+`gate-framework-patterns` carries the traps that have actually cost time in this repo: a spec
+named `*_spec.ts` is silently never collected, and a new test directory that skips its project
+decision either runs twice, runs against the wrong host, or is invisible.
+
+### Why keep prompts at all
+
+A commit message says what changed. A prompt says what was **asked for**, which is what lets the
+next person tell a deliberate decision from an accident. The gap between the two, the table of
+silences above, is where most of the engineering actually happened.
+
 ## License
 
 ISC
