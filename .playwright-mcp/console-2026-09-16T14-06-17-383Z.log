@@ -1,2 +1,0 @@
-[     314ms] [ERROR] Failed to load resource: net::ERR_CERT_AUTHORITY_INVALID @ https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap:0
-[     373ms] [ERROR] Failed to load resource: the server responded with a status of 404 (Not Found) @ http://127.0.0.1:8099/favicon.ico:0
