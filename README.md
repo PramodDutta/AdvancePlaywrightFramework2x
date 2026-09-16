@@ -981,6 +981,7 @@ already here; the four are stubs waiting for you. Nothing in that output is a fa
 ├── .github/
 │   ├── copilot-instructions.md  # Repo-wide rules for GitHub Copilot
 │   └── workflows/         # playwright.yml (tests) + quality-gate.yml (gates)
+├── .mcp.json              # MCP servers for this project (Playwright browser tools)
 ├── eslint.config.mjs      # Flat config: typescript-eslint + eslint-plugin-playwright
 ├── quality/               # The rule engine. Zero dependencies
 │   ├── gate.mjs           # The one entry point every stage calls
@@ -1000,6 +1001,8 @@ already here; the four are stubs waiting for you. Nothing in that output is a fa
 │   ├── 07-ponytail/
 │   ├── 08-cross-file/
 │   └── NN-*/TASK.md       # one task sheet per lesson
+├── scripts/
+│   └── playwright-mcp.mjs # Launches @playwright/mcp with what this machine needs
 ├── rules/                 # The rules, as data
 │   ├── ai-slop.rules.mjs
 │   ├── ponytail.rules.mjs
@@ -1091,6 +1094,36 @@ already here; the four are stubs waiting for you. Nothing in that output is a fa
 ├── tsconfig.json          # TypeScript configuration and path aliases
 └── package.json
 ```
+
+## Browser Tools over MCP
+
+**Concept:** `.mcp.json` wires [`@playwright/mcp`](https://github.com/microsoft/playwright-mcp) into
+this project, so an agent can drive a real browser: navigate, click, fill a form, read the
+accessibility tree, capture a screenshot, list network requests. 26 tools, no code in this repo.
+
+**Why:** Generating a Page Object from a description is guesswork. Generating one from the live
+accessibility snapshot of the page is transcription. The same goes for debugging a failure: reading
+the actual DOM beats reasoning about what it probably contains.
+
+**Q&A - why use this?**
+
+- **Q: How do I turn it on?** A: It is already in `.mcp.json`. Claude Code asks you to approve a
+  project-scoped server the first time; approve it and the tools appear next session.
+- **Q: Why a launcher script rather than the command directly?** A: A laptop and a container need
+  different flags. `scripts/playwright-mcp.mjs` works them out at start-up instead of committing one
+  set and breaking the other.
+- **Q: What's the gotcha?** A: It drives a **real browser**. In a sandboxed environment that usually
+  means no route to the public web, so point it at `localhost` or a `file://` URL to try it.
+
+```bash
+node scripts/playwright-mcp.mjs --headless --isolated   # start it by hand
+npx @modelcontextprotocol/inspector node scripts/playwright-mcp.mjs   # debug it in a browser UI
+```
+
+The launcher adds `--no-sandbox` when running as root, which Chromium requires and which is never
+true on a developer machine, and points `--executable-path` at a browser under
+`PLAYWRIGHT_BROWSERS_PATH` when the image ships one, because `@playwright/mcp` bundles its own
+playwright-core whose pinned Chromium build usually differs.
 
 ## Prerequisites
 

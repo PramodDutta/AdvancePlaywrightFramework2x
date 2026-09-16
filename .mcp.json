@@ -1,0 +1,14 @@
+{
+  "mcpServers": {
+    "playwright": {
+      "type": "stdio",
+      "command": "node",
+      "args": [
+        "scripts/playwright-mcp.mjs",
+        "--headless",
+        "--isolated"
+      ],
+      "env": {}
+    }
+  }
+}
